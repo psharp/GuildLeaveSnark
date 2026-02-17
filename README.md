@@ -1,10 +1,10 @@
 # GuildLeaveSnark
 
-A Turtle WoW addon that automatically posts snarky messages to guild chat when someone leaves your guild. Because sometimes you need to say what everyone's thinking.
+A Turtle WoW addon that automatically posts snarky messages to guild chat when someone leaves or gets kicked from your guild. Because sometimes you need to say what everyone's thinking.
 
 ## Features
 
-- **Automatic Detection**: Monitors guild roster and detects when members leave
+- **Automatic Detection**: Monitors guild roster and detects when members leave or get kicked
 - **30+ Built-in Snarky Quotes**: From subtle to savage
 - **Customizable**: Add your own quotes to match your guild's personality
 - **Smart Throttling**: 10-second cooldown prevents spam during mass exodus events
@@ -87,8 +87,11 @@ The addon comes with 30 snarky classics including:
 **Q: Will this get me gkicked?**  
 A: Possibly. Choose your guild wisely.
 
+**Q: Does this work for guild kicks or just voluntary leaves?**  
+A: Both! It detects "has left the guild" and "has been removed from the guild" messages.
+
 **Q: Does this work for all languages?**  
-A: It parses English system messages but has a fallback roster-diff system that works regardless of client language.
+A: It parses English system messages ("has left" / "has been removed"). For non-English clients, the addon still updates its roster tracking but may not trigger automatically.
 
 **Q: Can I disable it temporarily?**  
 A: Yes! `/gls off` to disable, `/gls on` to re-enable.

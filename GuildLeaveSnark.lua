@@ -11,6 +11,7 @@ local defaults = {
   channel = "GUILD",     -- "GUILD", "SAY", "PARTY", "RAID"
   prefixName = true,     -- "Name: quote" vs just quote
   throttleSeconds = 10,  -- prevent spam during mass changes
+  debug = false,         -- print system messages for debugging
   quotes = {
     "Another one returns to the wild.",
     "Press F. Or dont.",
@@ -101,12 +102,16 @@ end
 -- Approach A: parse system message (English clients)
 local function parseLeftGuild(systemMsg)
   if not systemMsg then return nil end
-  -- Typical: "Name has left the guild."
+  -- Voluntary leave: "Name has left the guild."
   local _, _, n = string.find(systemMsg, "^(.+) has left the guild%.$")
   if n then return n end
   -- Some clients/servers omit the period:
   _, _, n = string.find(systemMsg, "^(.+) has left the guild$")
-  return n
+  if n then return n end
+  -- Guild kick: "Name has been kicked out of the guild by KickerName"
+  _, _, n = string.find(systemMsg, "^(.+) has been kicked out of the guild by .+$")
+  if n then return n end
+  return nil
 end
 
 -- Approach B: roster diff fallback
@@ -164,6 +169,11 @@ f:SetScript("OnEvent", function()
   end
 
   if event == "CHAT_MSG_SYSTEM" then
+    -- Debug mode: print all system messages
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r " .. tostring(arg1))
+    end
+    
     local name = parseLeftGuild(arg1)
     if name then
       postSnark(name)
@@ -193,6 +203,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls on | off")
     DEFAULT_CHAT_FRAME:AddMessage("/gls channel guild|say|party|raid")
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
+    DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls add <quote text>')
     DEFAULT_CHAT_FRAME:AddMessage('/gls list')
     DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>')
@@ -226,6 +237,16 @@ SlashCmdList["GLS"] = function(msg)
     rest = string.lower(rest or "")
     GLS_DB.prefixName = (rest == "on" or rest == "1" or rest == "true")
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark prefixName =|r "..tostring(GLS_DB.prefixName))
+    return
+  end
+
+  if cmd == "debug" then
+    rest = string.lower(rest or "")
+    GLS_DB.debug = (rest == "on" or rest == "1" or rest == "true")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark debug mode =|r "..tostring(GLS_DB.debug))
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900All CHAT_MSG_SYSTEM messages will be printed.|r")
+    end
     return
   end
 
