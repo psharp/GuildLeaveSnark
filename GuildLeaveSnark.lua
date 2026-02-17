@@ -174,8 +174,9 @@ f:SetScript("OnEvent", function()
   end
 
   if event == "GUILD_ROSTER_UPDATE" then
-    -- If the system message parsing fails (non-English), roster diff still works.
-    diffRosterAndPost()
+    -- Just update the baseline roster; don't trigger snark
+    -- (Opening social panel fires this event frequently)
+    scanRoster()
     return
   end
 end)
