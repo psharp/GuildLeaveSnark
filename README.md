@@ -37,6 +37,7 @@ A Turtle WoW addon that automatically posts snarky messages to guild chat when s
 ```
 /gls channel <type>      - Set output channel: guild|say|party|raid
 /gls prefix on|off       - Toggle name prefix (e.g., "Name: quote")
+/gls debug on|off        - Enable debug mode (shows all system messages)
 ```
 
 ### Managing Quotes
@@ -88,10 +89,10 @@ The addon comes with 30 snarky classics including:
 A: Possibly. Choose your guild wisely.
 
 **Q: Does this work for guild kicks or just voluntary leaves?**  
-A: Both! It detects "has left the guild" and "has been removed from the guild" messages.
+A: Both! It detects "has left the guild" (voluntary) and "has been kicked out of the guild by" (forced removal).
 
 **Q: Does this work for all languages?**  
-A: It parses English system messages ("has left" / "has been removed"). For non-English clients, the addon still updates its roster tracking but may not trigger automatically.
+A: It parses English system messages ("has left" / "has been kicked out"). For non-English clients, the addon still updates its roster tracking but may not trigger automatically.
 
 **Q: Can I disable it temporarily?**  
 A: Yes! `/gls off` to disable, `/gls on` to re-enable.
@@ -108,6 +109,13 @@ A: Yes! `/gls channel say` (or party/raid) to broadcast your snark elsewhere. No
 - Check if addon is enabled: `/gls on`
 - Verify your guild chat permissions
 - Make sure you're actually in a guild
+- Enable debug mode to see system messages: `/gls debug on`
+
+**"Guild kicks aren't triggering the addon"**
+- Enable debug mode: `/gls debug on`
+- Kick someone and check what message appears
+- If it doesn't match "has been kicked out of the guild by", the server may use different text
+- Report the exact message format for a fix
 
 **"I see an error about 'match'"**
 - This has been fixed in the latest version. Make sure you have the updated files.
