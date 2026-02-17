@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: GuildLeaveSnark
+## Notes: Snarky guild messages when someone leaves.
+## Author: You
+## Version: 1.0
+## SavedVariables: GLS_DB
+
+GuildLeaveSnark.lua
