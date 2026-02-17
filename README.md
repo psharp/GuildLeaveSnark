@@ -37,6 +37,7 @@ A Turtle WoW addon that automatically posts snarky messages to guild chat when s
 ```
 /gls channel <type>      - Set output channel: guild|say|party|raid
 /gls prefix on|off       - Toggle name prefix (e.g., "Name: quote")
+/gls color <hex>         - Set message color (e.g., ff9900 for orange, ff0000 for red)
 /gls debug on|off        - Enable debug mode (shows all system messages)
 ```
 
@@ -46,6 +47,22 @@ A Turtle WoW addon that automatically posts snarky messages to guild chat when s
 /gls list                    - Display all available quotes
 /gls add <your quote here>   - Add a custom snarky comment
 ```
+
+### Customizing Colors
+
+Change the message color to match your guild's style:
+
+```
+/gls color ff9900    - Orange (default)
+/gls color ff0000    - Red
+/gls color 00ff00    - Green
+/gls color ffff00    - Yellow
+/gls color ff00ff    - Magenta
+/gls color 00ffff    - Cyan
+/gls color ffffff    - White
+```
+
+You can use any 6-digit hex color code (with or without the `#` prefix).
 
 ## Adding Snarky Comments
 
@@ -81,6 +98,7 @@ The addon comes with 30 snarky classics including:
 - **Enabled**: Yes
 - **Channel**: Guild chat
 - **Name Prefix**: Enabled (shows "PlayerName: quote")
+- **Color**: Orange (#ff9900)
 - **Throttle**: 10 seconds between messages
 
 ## FAQ

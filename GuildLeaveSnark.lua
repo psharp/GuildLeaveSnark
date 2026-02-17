@@ -12,6 +12,7 @@ local defaults = {
   prefixName = true,     -- "Name: quote" vs just quote
   throttleSeconds = 10,  -- prevent spam during mass changes
   debug = false,         -- print system messages for debugging
+  color = "ff9900",      -- hex color (default: orange)
   quotes = {
     "Another one returns to the wild.",
     "Press F. Or dont.",
@@ -89,11 +90,12 @@ local function postSnark(name)
   local quote = pickQuote()
   if not quote then return end
 
+  local color = GLS_DB.color or "ff9900"
   local msg
   if GLS_DB.prefixName and name and name ~= "" then
-    msg = name .. ": " .. quote
+    msg = "|cff" .. color .. name .. ": " .. quote .. "|r"
   else
-    msg = quote
+    msg = "|cff" .. color .. quote .. "|r"
   end
 
   SendChatMessage(msg, GLS_DB.channel or "GUILD")
@@ -203,6 +205,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls on | off")
     DEFAULT_CHAT_FRAME:AddMessage("/gls channel guild|say|party|raid")
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
+    DEFAULT_CHAT_FRAME:AddMessage("/gls color <hex>  (e.g., ff9900 for orange)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls add <quote text>')
     DEFAULT_CHAT_FRAME:AddMessage('/gls list')
@@ -237,6 +240,18 @@ SlashCmdList["GLS"] = function(msg)
     rest = string.lower(rest or "")
     GLS_DB.prefixName = (rest == "on" or rest == "1" or rest == "true")
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark prefixName =|r "..tostring(GLS_DB.prefixName))
+    return
+  end
+
+  if cmd == "color" then
+    local hex = rest or ""
+    hex = string.gsub(hex, "^#", "")  -- strip leading # if present
+    if string.len(hex) == 6 and string.find(hex, "^%x%x%x%x%x%x$") then
+      GLS_DB.color = string.lower(hex)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark color set to|r |cff"..GLS_DB.color..GLS_DB.color.."|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid hex color. Use 6 digits (e.g., ff9900 for orange)|r")
+    end
     return
   end
 
