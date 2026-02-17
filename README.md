@@ -5,8 +5,8 @@ A Turtle WoW addon that automatically posts snarky messages to guild chat when s
 ## Features
 
 - **Automatic Detection**: Monitors guild roster and detects when members leave or get kicked
-- **30+ Built-in Snarky Quotes**: From subtle to savage
-- **Customizable**: Add your own quotes to match your guild's personality
+- **40+ Built-in Snarky Quotes**: Separate pools for voluntary leaves vs guild kicks
+- **Customizable**: Add your own quotes and remove unwanted ones
 - **Smart Throttling**: 10-second cooldown prevents spam during mass exodus events
 - **Flexible Output**: Post to guild, say, party, or raid chat
 - **Optional Name Prefix**: Choose between "Bob: Another one bites dust" or just "Another one bites dust"
@@ -44,8 +44,12 @@ A Turtle WoW addon that automatically posts snarky messages to guild chat when s
 ### Managing Quotes
 
 ```
-/gls list                    - Display all available quotes
-/gls add <your quote here>   - Add a custom snarky comment
+/gls list                       - Display all available quotes (leave and kick)
+/gls addleave <your quote>      - Add a custom quote for voluntary leaves
+/gls addkick <your quote>       - Add a custom quote for guild kicks
+/gls removeleave <number>       - Remove leave quote by number (from /gls list)
+/gls removekick <number>        - Remove kick quote by number (from /gls list)
+/gls clear                      - Restore all default quotes
 ```
 
 ### Customizing Colors
@@ -66,32 +70,52 @@ You can use any 6-digit hex color code (with or without the `#` prefix).
 
 ## Adding Snarky Comments
 
-Want to add your own zingers? Easy:
+The addon has **separate quote pools** for voluntary leaves and guild kicks, so you can tailor the tone appropriately:
 
+**For Voluntary Leaves (they chose to go):**
 ```
-/gls add They left for a "better" guild. Narrator: There wasn't one.
-/gls add Promoted to "not our problem" rank.
-/gls add Gone but not mourned.
-/gls add Another victim of the guild bank tax.
+/gls addleave They left for a "better" guild. Narrator: There wasn't one.
+/gls addleave Off to touch grass.
+/gls addleave Gone but not mourned.
+/gls addleave The guild bank thanks them for their service.
+```
+
+**For Guild Kicks (they were shown the door):**
+```
+/gls addkick Promoted to "not our problem" rank.
+/gls addkick Another victim of the guild bank tax.
+/gls addkick Don't let the guild hall door hit you.
+/gls addkick They were politely asked to leave. Results may vary.
 ```
 
 **Pro Tips for Maximum Snark:**
 - Keep it short and punchy
 - Reference common WoW situations (wipes, loot drama, etc.)
 - Balance humor with not being genuinely toxic
-- Test your quote first: `/gls test SomePlayer`
+- Use different tones for kicks vs leaves
+- Test your quote: `/gls test SomePlayer`
+- Remove quotes you don't like: `/gls removeleave 5` or `/gls removekick 3`
 
 ## Built-in Quotes
 
-The addon comes with 30 snarky classics including:
+The addon comes with **25 leave quotes** and **15 kick quotes**, including:
+
+**Leave Quotes:**
 - "Another one returns to the wild."
 - "Real life crit again."
 - "Gone like a ninja."
 - "They left mid-buff. Classic."
 - "New guild, same wipes."
 - "Press F. Or dont."
-- "At least no bank heist."
-- And 23 more...
+- And 19 more...
+
+**Kick Quotes:**
+- "Promoted to ex-member."
+- "The trash took itself out."
+- "Justice has been served."
+- "Performance review: Failed."
+- "Turns out actions have consequences."
+- And 10 more...
 
 ## Default Settings
 
@@ -120,6 +144,12 @@ A: The 10-second throttle prevents spam. Only one message will fire.
 
 **Q: Can I use this for other channels besides guild?**  
 A: Yes! `/gls channel say` (or party/raid) to broadcast your snark elsewhere. Not recommended for random pugs.
+
+**Q: How do I remove a quote I don't like?**  
+A: Use `/gls list` to see all quotes with numbers, then `/gls removeleave <number>` or `/gls removekick <number>` to remove it.
+
+**Q: Can I reset to default quotes?**  
+A: Yes! `/gls clear` removes all custom quotes and restores the defaults.
 
 ## Troubleshooting
 

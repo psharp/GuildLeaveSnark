@@ -13,7 +13,7 @@ local defaults = {
   throttleSeconds = 10,  -- prevent spam during mass changes
   debug = false,         -- print system messages for debugging
   color = "ff9900",      -- hex color (default: orange)
-  quotes = {
+  quotesLeave = {
     "Another one returns to the wild.",
     "Press F. Or dont.",
     "BRB: permanently.",
@@ -25,25 +25,37 @@ local defaults = {
     "New guild, same wipes.",
     "They will be missed. Maybe.",
     "Aggroed by real life.",
-    "At least no bank heist.",
     "May repairs be costly.",
     "They left before loot.",
     "Somewhere, a murloc claps.",
     "Off to chase greener parses.",
     "The guild is calmer now.",
     "Farewell, random citizen.",
-    "Promoted to ex-member.",
     "Bold move. Good luck.",
     "Gone but soon forgotten.",
     "Less drama. More DPS.",
-    "This is why we wipe.",
-    "They rage-ported out.",
-    "Try not to pull extra.",
     "They chose peace.",
     "We wish them well. We do not.",
     "Thank you. Next.",
     "Another one bites dust.",
     "They left mid-buff. Classic."
+  },
+  quotesKick = {
+    "Promoted to ex-member.",
+    "This is why we wipe.",
+    "They rage-ported out.",
+    "Try not to pull extra.",
+    "At least no bank heist.",
+    "The trash took itself out.",
+    "Justice has been served.",
+    "One less repair bill to carry.",
+    "They found out about consequences.",
+    "Performance review: Failed.",
+    "Uninstalled from the roster.",
+    "The ban hammer has spoken.",
+    "They were asked to leave. Forcefully.",
+    "No refunds on guild tabards.",
+    "Turns out actions have consequences."
   }
 }
 
@@ -60,14 +72,25 @@ local function initDB()
       end
     end
   end
-  if type(GLS_DB.quotes) ~= "table" or table.getn(GLS_DB.quotes) == 0 then
-    GLS_DB.quotes = {}
-    for i=1, table.getn(defaults.quotes) do GLS_DB.quotes[i] = defaults.quotes[i] end
+  
+  -- Migrate old "quotes" to "quotesLeave" if needed
+  if type(GLS_DB.quotes) == "table" and table.getn(GLS_DB.quotes) > 0 then
+    GLS_DB.quotesLeave = GLS_DB.quotes
+    GLS_DB.quotes = nil
+  end
+  
+  if type(GLS_DB.quotesLeave) ~= "table" or table.getn(GLS_DB.quotesLeave) == 0 then
+    GLS_DB.quotesLeave = {}
+    for i=1, table.getn(defaults.quotesLeave) do GLS_DB.quotesLeave[i] = defaults.quotesLeave[i] end
+  end
+  if type(GLS_DB.quotesKick) ~= "table" or table.getn(GLS_DB.quotesKick) == 0 then
+    GLS_DB.quotesKick = {}
+    for i=1, table.getn(defaults.quotesKick) do GLS_DB.quotesKick[i] = defaults.quotesKick[i] end
   end
 end
 
-local function pickQuote()
-  local q = GLS_DB.quotes
+local function pickQuote(quoteType)
+  local q = quoteType == "kick" and GLS_DB.quotesKick or GLS_DB.quotesLeave
   local n = table.getn(q)
   if n < 1 then return nil end
   return q[math.random(1, n)]
@@ -83,11 +106,11 @@ local function throttled()
   return false
 end
 
-local function postSnark(name)
+local function postSnark(name, quoteType)
   if not GLS_DB.enabled then return end
   if throttled() then return end
 
-  local quote = pickQuote()
+  local quote = pickQuote(quoteType)
   if not quote then return end
 
   local color = GLS_DB.color or "ff9900"
@@ -102,18 +125,19 @@ local function postSnark(name)
 end
 
 -- Approach A: parse system message (English clients)
+-- Returns: name, type ("leave" or "kick")
 local function parseLeftGuild(systemMsg)
-  if not systemMsg then return nil end
+  if not systemMsg then return nil, nil end
   -- Voluntary leave: "Name has left the guild."
   local _, _, n = string.find(systemMsg, "^(.+) has left the guild%.$")
-  if n then return n end
+  if n then return n, "leave" end
   -- Some clients/servers omit the period:
   _, _, n = string.find(systemMsg, "^(.+) has left the guild$")
-  if n then return n end
+  if n then return n, "leave" end
   -- Guild kick: "Name has been kicked out of the guild by KickerName"
   _, _, n = string.find(systemMsg, "^(.+) has been kicked out of the guild by .+$")
-  if n then return n end
-  return nil
+  if n then return n, "kick" end
+  return nil, nil
 end
 
 -- Approach B: roster diff fallback
@@ -176,9 +200,9 @@ f:SetScript("OnEvent", function()
       DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r " .. tostring(arg1))
     end
     
-    local name = parseLeftGuild(arg1)
+    local name, quoteType = parseLeftGuild(arg1)
     if name then
-      postSnark(name)
+      postSnark(name, quoteType)
       -- Also update roster baseline
       scanRoster()
     end
@@ -207,9 +231,13 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls color <hex>  (e.g., ff9900 for orange)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
-    DEFAULT_CHAT_FRAME:AddMessage('/gls add <quote text>')
-    DEFAULT_CHAT_FRAME:AddMessage('/gls list')
-    DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls addleave <quote>  (add leave quote)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls addkick <quote>  (add kick quote)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls removeleave <num>  (remove by number)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls removekick <num>  (remove by number)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls list  (show all quotes)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls clear  (restore default quotes)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>  (test with fake leave)')
     return
   end
 
@@ -276,16 +304,20 @@ SlashCmdList["GLS"] = function(msg)
   end
 
   if cmd == "list" then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark quotes ("..table.getn(GLS_DB.quotes)..")|r")
-    for i=1, table.getn(GLS_DB.quotes) do
-      DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotes[i])
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Leave Quotes ("..table.getn(GLS_DB.quotesLeave).."):|r")
+    for i=1, table.getn(GLS_DB.quotesLeave) do
+      DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesLeave[i])
+    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Kick Quotes ("..table.getn(GLS_DB.quotesKick).."):|r")
+    for i=1, table.getn(GLS_DB.quotesKick) do
+      DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesKick[i])
     end
     return
   end
 
   if cmd == "test" then
     local name = rest ~= "" and rest or "Someone"
-    postSnark(name)
+    postSnark(name, "leave")
     return
   end
 
