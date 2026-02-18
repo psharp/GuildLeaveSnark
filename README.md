@@ -1,6 +1,6 @@
 # GuildLeaveSnark
 
-A Turtle WoW addon that automatically posts snarky messages to guild chat when someone leaves or gets kicked from your guild. Because sometimes you need to say what everyone's thinking.
+A World of Warcraft addon that automatically posts snarky messages to guild chat when someone leaves or gets kicked from your guild. Because sometimes you need to say what everyone's thinking.
 
 ## Features
 
