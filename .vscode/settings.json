@@ -1,0 +1,19 @@
+{
+  "Lua.runtime.version": "Lua 5.1",
+  "Lua.diagnostics.disable": [
+    "deprecated"
+  ],
+  "Lua.diagnostics.globals": [
+    "CreateFrame",
+    "SendChatMessage",
+    "DEFAULT_CHAT_FRAME",
+    "GetTime",
+    "IsInGuild",
+    "GuildRoster",
+    "GetNumGuildMembers",
+    "GetGuildRosterInfo",
+    "SlashCmdList",
+    "event",
+    "arg1"
+  ]
+}

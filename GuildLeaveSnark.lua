@@ -10,6 +10,7 @@ local defaults = {
   enabled = true,
   channel = "GUILD",     -- "GUILD", "SAY", "PARTY", "RAID"
   prefixName = true,     -- "Name: quote" vs just quote
+  rankMinIndex = -1,     -- -1 = all ranks, otherwise only rankIndex >= this value
   throttleSeconds = 10,  -- prevent spam during mass changes
   debug = false,         -- print system messages for debugging
   color = "ff9900",      -- hex color (default: orange)
@@ -106,8 +107,25 @@ local function throttled()
   return false
 end
 
-local function postSnark(name, quoteType)
+local function shouldPostForRank(rankIndex)
+  local minIndex = GLS_DB.rankMinIndex
+  if not minIndex or minIndex < 0 then
+    return true
+  end
+  if rankIndex == nil then
+    return false
+  end
+  return rankIndex >= minIndex
+end
+
+local function postSnark(name, quoteType, rankIndex)
   if not GLS_DB.enabled then return end
+  if not shouldPostForRank(rankIndex) then
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r rank filter blocked: "..tostring(name).." (rankIndex="..tostring(rankIndex)..")")
+    end
+    return
+  end
   if throttled() then return end
 
   local quote = pickQuote(quoteType)
@@ -148,11 +166,11 @@ local function scanRoster()
     GuildRoster()
     local count = GetNumGuildMembers(true)
     for i=1, count do
-      local name = GetGuildRosterInfo(i)
+      local name, _, rankIndex = GetGuildRosterInfo(i)
       if name then
         -- Strip realm if present
         name = string.gsub(name, "%-.*$", "")
-        t[name] = true
+        t[name] = rankIndex
       end
     end
   end
@@ -166,9 +184,9 @@ local function diffRosterAndPost()
   local new = roster
 
   -- Find names that were in old but not in new
-  for name,_ in pairs(old) do
+  for name,rankIndex in pairs(old) do
     if not new[name] then
-      postSnark(name)
+      postSnark(name, "leave", rankIndex)
       -- If multiple people left at once, throttle prevents spam anyway.
     end
   end
@@ -230,6 +248,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls channel guild|say|party|raid")
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls color <hex>  (e.g., ff9900 for orange)")
+    DEFAULT_CHAT_FRAME:AddMessage("/gls rank all|<index>  (0=GM, bigger number=lower rank)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls addleave <quote>  (add leave quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls addkick <quote>  (add kick quote)')
@@ -283,6 +302,33 @@ SlashCmdList["GLS"] = function(msg)
     return
   end
 
+  if cmd == "rank" then
+    rest = string.lower(rest or "")
+    if rest == "" then
+      if GLS_DB.rankMinIndex and GLS_DB.rankMinIndex >= 0 then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
+      else
+        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r all ranks")
+      end
+      return
+    end
+
+    if rest == "all" then
+      GLS_DB.rankMinIndex = -1
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r all ranks")
+      return
+    end
+
+    local n = tonumber(rest)
+    if n and n >= 0 then
+      GLS_DB.rankMinIndex = math.floor(n)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter set:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls rank all|<index>  (0=GM, larger number=lower rank)|r")
+    end
+    return
+  end
+
   if cmd == "debug" then
     rest = string.lower(rest or "")
     GLS_DB.debug = (rest == "on" or rest == "1" or rest == "true")
@@ -295,8 +341,8 @@ SlashCmdList["GLS"] = function(msg)
 
   if cmd == "add" then
     if rest and rest ~= "" then
-      table.insert(GLS_DB.quotes, rest)
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded quote (#"..table.getn(GLS_DB.quotes)..")|r")
+      table.insert(GLS_DB.quotesLeave, rest)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded leave quote (#"..table.getn(GLS_DB.quotesLeave)..")|r")
     else
       DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls add <quote text>|r")
     end
@@ -317,7 +363,7 @@ SlashCmdList["GLS"] = function(msg)
 
   if cmd == "test" then
     local name = rest ~= "" and rest or "Someone"
-    postSnark(name, "leave")
+    postSnark(name, "leave", 99)
     return
   end
 
