@@ -219,6 +219,39 @@ end
 local optionsFrame
 local optionsControls = {}
 local minimapButton
+local testCycleTypes = {"leave", "kick", "promote", "demote"}
+local testCycleLabels = {
+  leave = "Leave",
+  kick = "Kick",
+  promote = "Promote",
+  demote = "Demote"
+}
+local testCycleIndex = 1
+
+local function currentTestType()
+  return testCycleTypes[testCycleIndex] or "leave"
+end
+
+local function advanceTestType()
+  testCycleIndex = testCycleIndex + 1
+  if testCycleIndex > table.getn(testCycleTypes) then
+    testCycleIndex = 1
+  end
+end
+
+local function setTestTypeByName(mode)
+  mode = string.lower(mode or "")
+  if mode == "promotion" then mode = "promote" end
+  if mode == "demotion" then mode = "demote" end
+
+  for i=1, table.getn(testCycleTypes) do
+    if testCycleTypes[i] == mode then
+      testCycleIndex = i
+      return true
+    end
+  end
+  return false
+end
 
 local function hexToRGB(hex)
   hex = string.lower(hex or "ff9900")
@@ -331,11 +364,29 @@ local function setupQuoteEditorScrolling(scrollFrame, editBox)
     end
   end
 
+  local syncingScroll = false
+
+  local function setScroll(value)
+    local maxScroll = editBox:GetHeight() - scrollFrame:GetHeight()
+    if maxScroll < 0 then maxScroll = 0 end
+
+    if value < 0 then value = 0 end
+    if value > maxScroll then value = maxScroll end
+
+    if syncingScroll then return end
+    syncingScroll = true
+    scrollFrame:SetVerticalScroll(value)
+    if scrollBar then
+      scrollBar:SetValue(value)
+    end
+    syncingScroll = false
+  end
+
   local function updateScrollMetrics()
     local minHeight = scrollFrame:GetHeight()
     local contentHeight
     if editBox.GetStringHeight then
-      contentHeight = editBox:GetStringHeight() + 20
+      contentHeight = editBox:GetStringHeight() + 28
     else
       local text = editBox:GetText() or ""
       local lines = 1
@@ -351,7 +402,7 @@ local function setupQuoteEditorScrolling(scrollFrame, editBox)
           end
         end
       end
-      contentHeight = (lines * 14) + 20
+      contentHeight = (lines * 16) + 28
     end
     if contentHeight < minHeight then
       contentHeight = minHeight
@@ -379,33 +430,20 @@ local function setupQuoteEditorScrolling(scrollFrame, editBox)
     updateScrollMetrics()
   end)
 
-  editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
-    y = tonumber(y) or 0
-    h = tonumber(h) or 0
-    local offset = scrollFrame:GetVerticalScroll()
-    local top = -offset
-    local bottom = top - scrollFrame:GetHeight()
-
-    if y > top then
-      scrollFrame:SetVerticalScroll(-y)
-    elseif (y - h) < bottom then
-      scrollFrame:SetVerticalScroll(-(y - scrollFrame:GetHeight() + h))
-    end
-
-    if scrollBar then
-      scrollBar:SetValue(scrollFrame:GetVerticalScroll())
-    end
-  end)
+  editBox:SetScript("OnCursorChanged", nil)
 
   scrollFrame:SetScript("OnVerticalScroll", function()
+    if syncingScroll then return end
     if scrollBar then
+      syncingScroll = true
       scrollBar:SetValue(arg1)
+      syncingScroll = false
     end
   end)
 
   if scrollBar then
     scrollBar:SetScript("OnValueChanged", function()
-      scrollFrame:SetVerticalScroll(arg1)
+      setScroll(arg1 or 0)
     end)
   end
 
@@ -416,18 +454,10 @@ local function setupQuoteEditorScrolling(scrollFrame, editBox)
     local delta = arg1 or 0
     if delta > 0 then
       current = current - step
-      if current < 0 then current = 0 end
     else
       current = current + step
-      local maxScroll = editBox:GetHeight() - scrollFrame:GetHeight()
-      if maxScroll < 0 then maxScroll = 0 end
-      if current > maxScroll then current = maxScroll end
     end
-    scrollFrame:SetVerticalScroll(current)
-
-    if scrollBar then
-      scrollBar:SetValue(current)
-    end
+    setScroll(current)
   end)
 
   updateScrollMetrics()
@@ -468,6 +498,9 @@ local function updateOptionsUI()
 
   if optionsControls.colorButton then
     optionsControls.colorButton:SetText(string.format("Pick Color: #%s", colorHex))
+  end
+  if optionsControls.testModeButton then
+    optionsControls.testModeButton:SetText("Mode: " .. (testCycleLabels[currentTestType()] or "Leave"))
   end
   if optionsControls.leaveQuotesEdit then
     optionsControls.leaveQuotesEdit:SetText(quotesToText(GLS_DB.quotesLeave))
@@ -691,6 +724,7 @@ local function createOptionsUI()
   leaveEdit:SetFontObject(ChatFontNormal)
   leaveEdit:SetJustifyH("LEFT")
   leaveEdit:SetJustifyV("TOP")
+  leaveEdit:SetTextInsets(4, 4, 4, 6)
   leaveEdit:SetPoint("TOPLEFT", leaveScroll, "TOPLEFT", 0, 0)
   leaveEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   leaveScroll:SetScrollChild(leaveEdit)
@@ -721,6 +755,7 @@ local function createOptionsUI()
   kickEdit:SetFontObject(ChatFontNormal)
   kickEdit:SetJustifyH("LEFT")
   kickEdit:SetJustifyV("TOP")
+  kickEdit:SetTextInsets(4, 4, 4, 6)
   kickEdit:SetPoint("TOPLEFT", kickScroll, "TOPLEFT", 0, 0)
   kickEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   kickScroll:SetScrollChild(kickEdit)
@@ -751,6 +786,7 @@ local function createOptionsUI()
   promoteEdit:SetFontObject(ChatFontNormal)
   promoteEdit:SetJustifyH("LEFT")
   promoteEdit:SetJustifyV("TOP")
+  promoteEdit:SetTextInsets(4, 4, 4, 6)
   promoteEdit:SetPoint("TOPLEFT", promoteScroll, "TOPLEFT", 0, 0)
   promoteEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   promoteScroll:SetScrollChild(promoteEdit)
@@ -781,6 +817,7 @@ local function createOptionsUI()
   demoteEdit:SetFontObject(ChatFontNormal)
   demoteEdit:SetJustifyH("LEFT")
   demoteEdit:SetJustifyV("TOP")
+  demoteEdit:SetTextInsets(4, 4, 4, 6)
   demoteEdit:SetPoint("TOPLEFT", demoteScroll, "TOPLEFT", 0, 0)
   demoteEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   demoteScroll:SetScrollChild(demoteEdit)
@@ -792,7 +829,22 @@ local function createOptionsUI()
   testBtn:SetHeight(22)
   testBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22, 22)
   testBtn:SetText("Send Test")
-  testBtn:SetScript("OnClick", function() postSnark(UnitName("player") or "Someone", "leave", 99, true) end)
+  testBtn:SetScript("OnClick", function()
+    local quoteType = currentTestType()
+    postSnark(UnitName("player") or "Someone", quoteType, 99, true)
+  end)
+  optionsControls.testSendButton = testBtn
+
+  local cycleBtn = CreateFrame("Button", "GLS_TestCycleButton", frame, "UIPanelButtonTemplate")
+  cycleBtn:SetWidth(130)
+  cycleBtn:SetHeight(22)
+  cycleBtn:SetPoint("LEFT", testBtn, "RIGHT", 8, 0)
+  cycleBtn:SetText("Mode: " .. (testCycleLabels[currentTestType()] or "Leave"))
+  cycleBtn:SetScript("OnClick", function()
+    advanceTestType()
+    cycleBtn:SetText("Mode: " .. (testCycleLabels[currentTestType()] or "Leave"))
+  end)
+  optionsControls.testModeButton = cycleBtn
 
   local closeBottomBtn = CreateFrame("Button", "GLS_CloseBottomButton", frame, "UIPanelButtonTemplate")
   closeBottomBtn:SetWidth(90)
@@ -1172,10 +1224,16 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls addleave <quote>  (add leave quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls addkick <quote>  (add kick quote)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls addpromotion <quote>  (add promotion quote)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls adddemotion <quote>  (add demotion quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls removeleave <num>  (remove by number)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls removekick <num>  (remove by number)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls removepromotion <num>  (remove by number)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls removedemotion <num>  (remove by number)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls list  (show all quotes)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls clear  (restore default quotes)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls add <quote>  (alias for addleave)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls testmode [leave|kick|promote|demote]')
     DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>  (test with fake leave)')
     return
   end
@@ -1264,12 +1322,102 @@ SlashCmdList["GLS"] = function(msg)
     return
   end
 
-  if cmd == "add" then
+  if cmd == "testmode" then
+    local mode = string.lower(rest or "")
+    if mode == "" then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark test mode:|r " .. (testCycleLabels[currentTestType()] or "Leave"))
+      return
+    end
+
+    if setTestTypeByName(mode) then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark test mode set to|r " .. (testCycleLabels[currentTestType()] or "Leave"))
+      updateOptionsUI()
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls testmode leave|kick|promote|demote|r")
+    end
+    return
+  end
+
+  if cmd == "add" or cmd == "addleave" then
     if rest and rest ~= "" then
       table.insert(GLS_DB.quotesLeave, rest)
       DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded leave quote (#"..table.getn(GLS_DB.quotesLeave)..")|r")
     else
-      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls add <quote text>|r")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls addleave <quote text>|r")
+    end
+    return
+  end
+
+  if cmd == "addkick" then
+    if rest and rest ~= "" then
+      table.insert(GLS_DB.quotesKick, rest)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded kick quote (#"..table.getn(GLS_DB.quotesKick)..")|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls addkick <quote text>|r")
+    end
+    return
+  end
+
+  if cmd == "addpromotion" then
+    if rest and rest ~= "" then
+      table.insert(GLS_DB.quotesPromote, rest)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded promotion quote (#"..table.getn(GLS_DB.quotesPromote)..")|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls addpromotion <quote text>|r")
+    end
+    return
+  end
+
+  if cmd == "adddemotion" then
+    if rest and rest ~= "" then
+      table.insert(GLS_DB.quotesDemote, rest)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffAdded demotion quote (#"..table.getn(GLS_DB.quotesDemote)..")|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls adddemotion <quote text>|r")
+    end
+    return
+  end
+
+  if cmd == "removeleave" then
+    local n = tonumber(rest)
+    if n and n >= 1 and n <= table.getn(GLS_DB.quotesLeave) then
+      table.remove(GLS_DB.quotesLeave, n)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRemoved leave quote #"..n.."|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls removeleave <number>|r")
+    end
+    return
+  end
+
+  if cmd == "removekick" then
+    local n = tonumber(rest)
+    if n and n >= 1 and n <= table.getn(GLS_DB.quotesKick) then
+      table.remove(GLS_DB.quotesKick, n)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRemoved kick quote #"..n.."|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls removekick <number>|r")
+    end
+    return
+  end
+
+  if cmd == "removepromotion" then
+    local n = tonumber(rest)
+    if n and n >= 1 and n <= table.getn(GLS_DB.quotesPromote) then
+      table.remove(GLS_DB.quotesPromote, n)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRemoved promotion quote #"..n.."|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls removepromotion <number>|r")
+    end
+    return
+  end
+
+  if cmd == "removedemotion" then
+    local n = tonumber(rest)
+    if n and n >= 1 and n <= table.getn(GLS_DB.quotesDemote) then
+      table.remove(GLS_DB.quotesDemote, n)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRemoved demotion quote #"..n.."|r")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls removedemotion <number>|r")
     end
     return
   end
@@ -1291,6 +1439,20 @@ SlashCmdList["GLS"] = function(msg)
     for i=1, table.getn(GLS_DB.quotesDemote) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesDemote[i])
     end
+    return
+  end
+
+  if cmd == "clear" then
+    GLS_DB.quotesLeave = {}
+    for i=1, table.getn(defaults.quotesLeave) do GLS_DB.quotesLeave[i] = defaults.quotesLeave[i] end
+    GLS_DB.quotesKick = {}
+    for i=1, table.getn(defaults.quotesKick) do GLS_DB.quotesKick[i] = defaults.quotesKick[i] end
+    GLS_DB.quotesPromote = {}
+    for i=1, table.getn(defaults.quotesPromote) do GLS_DB.quotesPromote[i] = defaults.quotesPromote[i] end
+    GLS_DB.quotesDemote = {}
+    for i=1, table.getn(defaults.quotesDemote) do GLS_DB.quotesDemote[i] = defaults.quotesDemote[i] end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark quotes reset to defaults.|r")
+    updateOptionsUI()
     return
   end
 

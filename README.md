@@ -33,7 +33,9 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 /gls on             - Enable the addon
 /gls off            - Disable the addon
 /gls ui             - Toggle the visual options window
-/gls test <name>    - Test with a fake name (e.g., /gls test Bob)
+/gls testmode       - Show current test mode
+/gls testmode <mode>- Set test mode: leave|kick|promote|demote
+/gls test <name>    - Send a quick leave test with a fake name
 ```
 
 ### Configuration
@@ -53,16 +55,21 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 - Options window includes toggles for Enabled / Prefix / Debug
 - Includes channel cycling button, rank filter input, and color picker
 - Includes dedicated quote editors for leave, kick, promotion, and demotion (one quote per line)
-- Includes a "Send Test" button to preview output quickly
+- Includes separate test controls: **Send Test** (send now) and **Mode** (cycle leave/kick/promote/demote)
 
 ### Managing Quotes
 
 ```
 /gls list                       - Display all available quotes (leave, kick, promotion, demotion)
+/gls add <your quote>           - Alias for /gls addleave
 /gls addleave <your quote>      - Add a custom quote for voluntary leaves
 /gls addkick <your quote>       - Add a custom quote for guild kicks
+/gls addpromotion <your quote>  - Add a custom quote for promotions
+/gls adddemotion <your quote>   - Add a custom quote for demotions
 /gls removeleave <number>       - Remove leave quote by number (from /gls list)
 /gls removekick <number>        - Remove kick quote by number (from /gls list)
+/gls removepromotion <number>   - Remove promotion quote by number (from /gls list)
+/gls removedemotion <number>    - Remove demotion quote by number (from /gls list)
 /gls clear                      - Restore all default quotes
 ```
 
@@ -113,8 +120,9 @@ You can edit each pool directly in the options popup:
 - Reference common WoW situations (wipes, loot drama, etc.)
 - Balance humor with not being genuinely toxic
 - Use different tones for kicks vs leaves
-- Test your quote: `/gls test SomePlayer`
-- Remove quotes you don't like: `/gls removeleave 5` or `/gls removekick 3`
+- Test quickly with slash commands: `/gls testmode promote` then `/gls test SomePlayer`
+- Test from UI: pick **Mode** then click **Send Test**
+- Remove quotes you don't like: `/gls removeleave 5`, `/gls removekick 3`, `/gls removepromotion 2`, `/gls removedemotion 4`
 
 ## Built-in Quotes
 
@@ -175,6 +183,9 @@ A: Yes. Use the minimap button to open the visual options window.
 **Q: Can I filter output by guild rank?**  
 A: Yes. Use `/gls rank all` for everyone, or `/gls rank <index>` where `0=GM` and larger numbers are lower ranks.
 
+**Q: How do I test kick/promotion/demotion quotes quickly?**  
+A: Use `/gls testmode leave|kick|promote|demote` to set mode for the UI test button, then click **Send Test** in the options window. (`/gls test <name>` is a quick leave-test slash command.)
+
 **Q: What if multiple people leave at once?**  
 A: The 10-second throttle prevents spam. Only one message will fire.
 
@@ -182,7 +193,7 @@ A: The 10-second throttle prevents spam. Only one message will fire.
 A: Yes! `/gls channel say` (or party/raid) to broadcast your snark elsewhere. Not recommended for random pugs.
 
 **Q: How do I remove a quote I don't like?**  
-A: Use `/gls list` to see all quotes with numbers, then `/gls removeleave <number>` or `/gls removekick <number>` to remove it.
+A: Use `/gls list` to see all quotes with numbers, then remove by pool: `/gls removeleave`, `/gls removekick`, `/gls removepromotion`, or `/gls removedemotion`.
 
 **Q: Can I reset to default quotes?**  
 A: Yes! `/gls clear` removes all custom quotes and restores the defaults.
