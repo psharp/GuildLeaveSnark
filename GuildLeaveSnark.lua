@@ -778,14 +778,55 @@ local function parseLeftGuild(systemMsg)
   -- Some clients/servers omit the period:
   _, _, n = string.find(systemMsg, "^(.+) has left the guild$")
   if n then return n, "leave" end
-  -- Guild kick: "Name has been kicked out of the guild by KickerName"
-  _, _, n = string.find(systemMsg, "^(.+) has been kicked out of the guild by .+$")
+  -- Guild kick variants:
+  -- "Name has been kicked out of the guild by KickerName"
+  -- "Name has been kicked from the guild by KickerName"
+  -- "Name was kicked from the guild by KickerName"
+  local kickPatterns = {
+    "^(.+) has been kicked out of the guild by .+%.$",
+    "^(.+) has been kicked out of the guild by .+$",
+    "^(.+) has been kicked from the guild by .+%.$",
+    "^(.+) has been kicked from the guild by .+$",
+    "^(.+) was kicked from the guild by .+%.$",
+    "^(.+) was kicked from the guild by .+$",
+    "^(.+) has been removed from the guild by .+%.$",
+    "^(.+) has been removed from the guild by .+$",
+    "^(.+) has been kicked out of the guild%.$",
+    "^(.+) has been kicked out of the guild$",
+    "^(.+) has been kicked from the guild%.$",
+    "^(.+) has been kicked from the guild$",
+    "^(.+) has been removed from the guild%.$",
+    "^(.+) has been removed from the guild$"
+  }
+
+  for i=1, table.getn(kickPatterns) do
+    _, _, n = string.find(systemMsg, kickPatterns[i])
+    if n then return n, "kick" end
+  end
+
+  -- "You have kicked Name out of the guild."
+  -- "You have kicked Name from the guild."
+  _, _, n = string.find(systemMsg, "^You have kicked (.+) out of the guild%.$")
   if n then return n, "kick" end
+  _, _, n = string.find(systemMsg, "^You have kicked (.+) out of the guild$")
+  if n then return n, "kick" end
+  _, _, n = string.find(systemMsg, "^You have kicked (.+) from the guild%.$")
+  if n then return n, "kick" end
+  _, _, n = string.find(systemMsg, "^You have kicked (.+) from the guild$")
+  if n then return n, "kick" end
+
+  -- "You have removed Name from the guild."
+  _, _, n = string.find(systemMsg, "^You have removed (.+) from the guild%.$")
+  if n then return n, "kick" end
+  _, _, n = string.find(systemMsg, "^You have removed (.+) from the guild$")
+  if n then return n, "kick" end
+
   return nil, nil
 end
 
 -- Approach B: roster diff fallback
 local roster = {}
+local knownRanks = {}
 local function scanRoster()
   local t = {}
   if IsInGuild() then
@@ -797,6 +838,7 @@ local function scanRoster()
         -- Strip realm if present
         name = string.gsub(name, "%-.*$", "")
         t[name] = rankIndex
+        knownRanks[name] = rankIndex
       end
     end
   end
@@ -848,7 +890,11 @@ f:SetScript("OnEvent", function()
     
     local name, quoteType = parseLeftGuild(arg1)
     if name then
-      postSnark(name, quoteType, roster[name])
+      local rankIndex = roster[name]
+      if rankIndex == nil then
+        rankIndex = knownRanks[name]
+      end
+      postSnark(name, quoteType, rankIndex)
       -- Also update roster baseline
       scanRoster()
     end
