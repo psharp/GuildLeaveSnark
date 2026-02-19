@@ -307,6 +307,8 @@ local function setupQuoteEditorScrolling(scrollFrame, editBox)
   end)
 
   editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
+    y = tonumber(y) or 0
+    h = tonumber(h) or 0
     local offset = scrollFrame:GetVerticalScroll()
     local top = -offset
     local bottom = top - scrollFrame:GetHeight()
