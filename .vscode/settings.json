@@ -19,6 +19,7 @@
     "UnitName",
     "GetCursorPosition",
     "atan2",
+    "this",
     "event",
     "arg1"
   ]

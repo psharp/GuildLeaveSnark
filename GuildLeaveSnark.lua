@@ -230,8 +230,18 @@ local function createOptionsUI()
   frame:SetMovable(true)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-  frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+  frame:SetScript("OnDragStart", function(self)
+    local target = self or this
+    if target then
+      target:StartMoving()
+    end
+  end)
+  frame:SetScript("OnDragStop", function(self)
+    local target = self or this
+    if target then
+      target:StopMovingOrSizing()
+    end
+  end)
   frame:Hide()
 
   local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
