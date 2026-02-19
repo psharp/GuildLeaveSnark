@@ -161,6 +161,30 @@ local optionsFrame
 local optionsControls = {}
 local minimapButton
 
+local function hexToRGB(hex)
+  hex = string.lower(hex or "ff9900")
+  if string.len(hex) ~= 6 then
+    hex = "ff9900"
+  end
+
+  local r = tonumber(string.sub(hex, 1, 2), 16) or 255
+  local g = tonumber(string.sub(hex, 3, 4), 16) or 153
+  local b = tonumber(string.sub(hex, 5, 6), 16) or 0
+  return r / 255, g / 255, b / 255
+end
+
+local function rgbToHex(r, g, b)
+  local rr = math.floor((r or 1) * 255 + 0.5)
+  local gg = math.floor((g or 0.6) * 255 + 0.5)
+  local bb = math.floor((b or 0) * 255 + 0.5)
+
+  if rr < 0 then rr = 0 elseif rr > 255 then rr = 255 end
+  if gg < 0 then gg = 0 elseif gg > 255 then gg = 255 end
+  if bb < 0 then bb = 0 elseif bb > 255 then bb = 255 end
+
+  return string.format("%02x%02x%02x", rr, gg, bb)
+end
+
 local function updateOptionsUI()
   if not optionsFrame then return end
 
@@ -175,7 +199,7 @@ local function updateOptionsUI()
     optionsControls.rankEdit:SetText("all")
   end
 
-  optionsControls.colorEdit:SetText(GLS_DB.color or "ff9900")
+  optionsControls.colorButton:SetText("Pick Color: #" .. (GLS_DB.color or "ff9900"))
 end
 
 local function applyRankFilterFromEdit()
@@ -200,16 +224,25 @@ local function applyRankFilterFromEdit()
   end
 end
 
-local function applyColorFromEdit()
-  local hex = optionsControls.colorEdit:GetText() or ""
-  hex = string.gsub(hex, "^#", "")
-  if string.len(hex) == 6 and string.find(hex, "^%x%x%x%x%x%x$") then
-    GLS_DB.color = string.lower(hex)
-    optionsControls.colorEdit:SetText(GLS_DB.color)
-  else
-    DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid hex color. Use 6 digits (e.g., ff9900).|r")
-    optionsControls.colorEdit:SetText(GLS_DB.color or "ff9900")
+local function openColorPicker()
+  local oldHex = GLS_DB.color or "ff9900"
+  local r, g, b = hexToRGB(oldHex)
+
+  local function applyPickerColor()
+    local pr, pg, pb = ColorPickerFrame:GetColorRGB()
+    GLS_DB.color = rgbToHex(pr, pg, pb)
+    updateOptionsUI()
   end
+
+  ColorPickerFrame.hasOpacity = false
+  ColorPickerFrame.opacityFunc = nil
+  ColorPickerFrame.func = applyPickerColor
+  ColorPickerFrame.cancelFunc = function()
+    GLS_DB.color = oldHex
+    updateOptionsUI()
+  end
+  ColorPickerFrame:SetColorRGB(r, g, b)
+  ColorPickerFrame:Show()
 end
 
 local function createOptionsUI()
@@ -325,23 +358,12 @@ local function createOptionsUI()
   colorLabel:SetPoint("TOPLEFT", rankHelp, "BOTTOMLEFT", 0, -10)
   colorLabel:SetText("Message color")
 
-  local colorEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-  colorEdit:SetWidth(90)
-  colorEdit:SetHeight(20)
-  colorEdit:SetAutoFocus(false)
-  colorEdit:SetPoint("TOPLEFT", colorLabel, "BOTTOMLEFT", 0, -6)
-  colorEdit:SetScript("OnEnterPressed", function(self)
-    applyColorFromEdit()
-    self:ClearFocus()
-  end)
-  optionsControls.colorEdit = colorEdit
-
-  local colorApply = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-  colorApply:SetWidth(60)
-  colorApply:SetHeight(22)
-  colorApply:SetPoint("LEFT", colorEdit, "RIGHT", 8, 0)
-  colorApply:SetText("Set")
-  colorApply:SetScript("OnClick", applyColorFromEdit)
+  local colorButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  colorButton:SetWidth(170)
+  colorButton:SetHeight(22)
+  colorButton:SetPoint("TOPLEFT", colorLabel, "BOTTOMLEFT", 0, -6)
+  colorButton:SetScript("OnClick", openColorPicker)
+  optionsControls.colorButton = colorButton
 
   local testBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
   testBtn:SetWidth(120)

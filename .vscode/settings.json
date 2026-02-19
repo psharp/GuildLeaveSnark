@@ -16,6 +16,7 @@
     "UIParent",
     "Minimap",
     "GameTooltip",
+    "ColorPickerFrame",
     "UnitName",
     "GetCursorPosition",
     "atan2",
