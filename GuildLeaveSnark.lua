@@ -58,6 +58,30 @@ local defaults = {
     "They were asked to leave. Forcefully.",
     "No refunds on guild tabards.",
     "Turns out actions have consequences."
+  },
+  quotesPromote = {
+    "A surprise promotion appears.",
+    "Climbing the ladder, one whisper at a time.",
+    "Leadership saw potential. Bold call.",
+    "Promoted for services to raid snacks.",
+    "Their resume now says 'trusted'.",
+    "Another step closer to guild politics.",
+    "Grats on the new permissions.",
+    "Promoted. Expectations increased.",
+    "Someone found the promote button.",
+    "Rank up achieved. Try not to abuse it."
+  },
+  quotesDemote = {
+    "Gravity works on guild ranks too.",
+    "Demoted to fewer responsibilities.",
+    "Performance review was... brief.",
+    "That rank did not survive the patch.",
+    "Permissions have left the party.",
+    "A tactical repositioning on the ladder.",
+    "Demoted, but still in the raid.",
+    "Promotion speedrun: any% failed.",
+    "The guild has spoken.",
+    "Back to proving grounds."
   }
 }
 
@@ -89,10 +113,27 @@ local function initDB()
     GLS_DB.quotesKick = {}
     for i=1, table.getn(defaults.quotesKick) do GLS_DB.quotesKick[i] = defaults.quotesKick[i] end
   end
+  if type(GLS_DB.quotesPromote) ~= "table" or table.getn(GLS_DB.quotesPromote) == 0 then
+    GLS_DB.quotesPromote = {}
+    for i=1, table.getn(defaults.quotesPromote) do GLS_DB.quotesPromote[i] = defaults.quotesPromote[i] end
+  end
+  if type(GLS_DB.quotesDemote) ~= "table" or table.getn(GLS_DB.quotesDemote) == 0 then
+    GLS_DB.quotesDemote = {}
+    for i=1, table.getn(defaults.quotesDemote) do GLS_DB.quotesDemote[i] = defaults.quotesDemote[i] end
+  end
 end
 
 local function pickQuote(quoteType)
-  local q = quoteType == "kick" and GLS_DB.quotesKick or GLS_DB.quotesLeave
+  local q
+  if quoteType == "kick" then
+    q = GLS_DB.quotesKick
+  elseif quoteType == "promote" then
+    q = GLS_DB.quotesPromote
+  elseif quoteType == "demote" then
+    q = GLS_DB.quotesDemote
+  else
+    q = GLS_DB.quotesLeave
+  end
   local n = table.getn(q)
   if n < 1 then return nil end
   return q[math.random(1, n)]
@@ -108,12 +149,15 @@ local function throttled()
   return false
 end
 
-local function shouldPostForRank(rankIndex)
+local function shouldPostForRank(rankIndex, quoteType)
   local minIndex = GLS_DB.rankMinIndex
   if not minIndex or minIndex < 0 then
     return true
   end
   if rankIndex == nil then
+    if quoteType == "promote" or quoteType == "demote" then
+      return true
+    end
     return false
   end
   return rankIndex >= minIndex
@@ -121,16 +165,28 @@ end
 
 local function postSnark(name, quoteType, rankIndex, bypassThrottle)
   if not GLS_DB.enabled then return end
-  if not shouldPostForRank(rankIndex) then
+  if not shouldPostForRank(rankIndex, quoteType) then
     if GLS_DB.debug then
-      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r rank filter blocked: "..tostring(name).." (rankIndex="..tostring(rankIndex)..")")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r rank filter blocked: "..tostring(name).." (type="..tostring(quoteType)..", rankIndex="..tostring(rankIndex)..")")
     end
     return
   end
-  if not bypassThrottle and throttled() then return end
+
+  local ignoreThrottle = bypassThrottle or quoteType == "promote" or quoteType == "demote"
+  if not ignoreThrottle and throttled() then
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r throttled: "..tostring(name).." (type="..tostring(quoteType)..")")
+    end
+    return
+  end
 
   local quote = pickQuote(quoteType)
-  if not quote then return end
+  if not quote then
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r no quote available for type="..tostring(quoteType))
+    end
+    return
+  end
 
   local color = GLS_DB.color or "ff9900"
   local msg
@@ -140,6 +196,9 @@ local function postSnark(name, quoteType, rankIndex, bypassThrottle)
     msg = "|cff" .. color .. quote .. "|r"
   end
 
+  if GLS_DB.debug then
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r sending "..tostring(quoteType).." snark to "..tostring(GLS_DB.channel or "GUILD"))
+  end
   SendChatMessage(msg, GLS_DB.channel or "GUILD")
 end
 
@@ -230,8 +289,16 @@ local function textToQuotes(text)
 end
 
 local function applyQuotesFromEditor(quoteType)
-  local isKick = quoteType == "kick"
-  local editor = isKick and optionsControls.kickQuotesEdit or optionsControls.leaveQuotesEdit
+  local editor
+  if quoteType == "kick" then
+    editor = optionsControls.kickQuotesEdit
+  elseif quoteType == "promote" then
+    editor = optionsControls.promoteQuotesEdit
+  elseif quoteType == "demote" then
+    editor = optionsControls.demoteQuotesEdit
+  else
+    editor = optionsControls.leaveQuotesEdit
+  end
   if not editor then return end
 
   local parsed = textToQuotes(editor:GetText())
@@ -240,9 +307,15 @@ local function applyQuotesFromEditor(quoteType)
     return
   end
 
-  if isKick then
+  if quoteType == "kick" then
     GLS_DB.quotesKick = parsed
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved kick quotes:|r " .. table.getn(parsed))
+  elseif quoteType == "promote" then
+    GLS_DB.quotesPromote = parsed
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved promotion quotes:|r " .. table.getn(parsed))
+  elseif quoteType == "demote" then
+    GLS_DB.quotesDemote = parsed
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved demotion quotes:|r " .. table.getn(parsed))
   else
     GLS_DB.quotesLeave = parsed
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved leave quotes:|r " .. table.getn(parsed))
@@ -408,6 +481,18 @@ local function updateOptionsUI()
       optionsControls.kickQuotesEdit.GLS_UpdateScrollMetrics()
     end
   end
+  if optionsControls.promoteQuotesEdit then
+    optionsControls.promoteQuotesEdit:SetText(quotesToText(GLS_DB.quotesPromote))
+    if optionsControls.promoteQuotesEdit.GLS_UpdateScrollMetrics then
+      optionsControls.promoteQuotesEdit.GLS_UpdateScrollMetrics()
+    end
+  end
+  if optionsControls.demoteQuotesEdit then
+    optionsControls.demoteQuotesEdit:SetText(quotesToText(GLS_DB.quotesDemote))
+    if optionsControls.demoteQuotesEdit.GLS_UpdateScrollMetrics then
+      optionsControls.demoteQuotesEdit.GLS_UpdateScrollMetrics()
+    end
+  end
 end
 
 local function applyRankFilterFromEdit()
@@ -458,7 +543,7 @@ local function createOptionsUI()
 
   local frame = CreateFrame("Frame", "GLS_OptionsFrame", UIParent)
   frame:SetWidth(700)
-  frame:SetHeight(500)
+  frame:SetHeight(640)
   frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   frame:SetBackdrop({
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -595,12 +680,12 @@ local function createOptionsUI()
 
   local leaveScroll = CreateFrame("ScrollFrame", "GLS_LeaveQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   leaveScroll:SetWidth(300)
-  leaveScroll:SetHeight(220)
+  leaveScroll:SetHeight(150)
   leaveScroll:SetPoint("TOPLEFT", leaveLabel, "BOTTOMLEFT", 0, -8)
 
   local leaveEdit = CreateFrame("EditBox", nil, leaveScroll)
   leaveEdit:SetWidth(278)
-  leaveEdit:SetHeight(220)
+  leaveEdit:SetHeight(150)
   leaveEdit:SetAutoFocus(false)
   leaveEdit:SetMultiLine(true)
   leaveEdit:SetFontObject(ChatFontNormal)
@@ -625,12 +710,12 @@ local function createOptionsUI()
 
   local kickScroll = CreateFrame("ScrollFrame", "GLS_KickQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   kickScroll:SetWidth(300)
-  kickScroll:SetHeight(220)
+  kickScroll:SetHeight(150)
   kickScroll:SetPoint("TOPLEFT", kickLabel, "BOTTOMLEFT", 0, -8)
 
   local kickEdit = CreateFrame("EditBox", nil, kickScroll)
   kickEdit:SetWidth(278)
-  kickEdit:SetHeight(220)
+  kickEdit:SetHeight(150)
   kickEdit:SetAutoFocus(false)
   kickEdit:SetMultiLine(true)
   kickEdit:SetFontObject(ChatFontNormal)
@@ -641,6 +726,66 @@ local function createOptionsUI()
   kickScroll:SetScrollChild(kickEdit)
   setupQuoteEditorScrolling(kickScroll, kickEdit)
   optionsControls.kickQuotesEdit = kickEdit
+
+  local promoteLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  promoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -410)
+  promoteLabel:SetText("Promotion quotes (one per line)")
+
+  local promoteSaveBtn = CreateFrame("Button", "GLS_PromoteSaveButton", frame, "UIPanelButtonTemplate")
+  promoteSaveBtn:SetWidth(80)
+  promoteSaveBtn:SetHeight(20)
+  promoteSaveBtn:SetPoint("LEFT", promoteLabel, "RIGHT", 8, 0)
+  promoteSaveBtn:SetText("Save")
+  promoteSaveBtn:SetScript("OnClick", function() applyQuotesFromEditor("promote") end)
+
+  local promoteScroll = CreateFrame("ScrollFrame", "GLS_PromoteQuotesScroll", frame, "UIPanelScrollFrameTemplate")
+  promoteScroll:SetWidth(300)
+  promoteScroll:SetHeight(150)
+  promoteScroll:SetPoint("TOPLEFT", promoteLabel, "BOTTOMLEFT", 0, -8)
+
+  local promoteEdit = CreateFrame("EditBox", nil, promoteScroll)
+  promoteEdit:SetWidth(278)
+  promoteEdit:SetHeight(150)
+  promoteEdit:SetAutoFocus(false)
+  promoteEdit:SetMultiLine(true)
+  promoteEdit:SetFontObject(ChatFontNormal)
+  promoteEdit:SetJustifyH("LEFT")
+  promoteEdit:SetJustifyV("TOP")
+  promoteEdit:SetPoint("TOPLEFT", promoteScroll, "TOPLEFT", 0, 0)
+  promoteEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  promoteScroll:SetScrollChild(promoteEdit)
+  setupQuoteEditorScrolling(promoteScroll, promoteEdit)
+  optionsControls.promoteQuotesEdit = promoteEdit
+
+  local demoteLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  demoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -410)
+  demoteLabel:SetText("Demotion quotes (one per line)")
+
+  local demoteSaveBtn = CreateFrame("Button", "GLS_DemoteSaveButton", frame, "UIPanelButtonTemplate")
+  demoteSaveBtn:SetWidth(80)
+  demoteSaveBtn:SetHeight(20)
+  demoteSaveBtn:SetPoint("LEFT", demoteLabel, "RIGHT", 8, 0)
+  demoteSaveBtn:SetText("Save")
+  demoteSaveBtn:SetScript("OnClick", function() applyQuotesFromEditor("demote") end)
+
+  local demoteScroll = CreateFrame("ScrollFrame", "GLS_DemoteQuotesScroll", frame, "UIPanelScrollFrameTemplate")
+  demoteScroll:SetWidth(300)
+  demoteScroll:SetHeight(150)
+  demoteScroll:SetPoint("TOPLEFT", demoteLabel, "BOTTOMLEFT", 0, -8)
+
+  local demoteEdit = CreateFrame("EditBox", nil, demoteScroll)
+  demoteEdit:SetWidth(278)
+  demoteEdit:SetHeight(150)
+  demoteEdit:SetAutoFocus(false)
+  demoteEdit:SetMultiLine(true)
+  demoteEdit:SetFontObject(ChatFontNormal)
+  demoteEdit:SetJustifyH("LEFT")
+  demoteEdit:SetJustifyV("TOP")
+  demoteEdit:SetPoint("TOPLEFT", demoteScroll, "TOPLEFT", 0, 0)
+  demoteEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  demoteScroll:SetScrollChild(demoteEdit)
+  setupQuoteEditorScrolling(demoteScroll, demoteEdit)
+  optionsControls.demoteQuotesEdit = demoteEdit
 
   local testBtn = CreateFrame("Button", "GLS_TestButton", frame, "UIPanelButtonTemplate")
   testBtn:SetWidth(120)
@@ -697,6 +842,30 @@ local function getAngleDegrees(dx, dy)
     a = a + 180
   end
   return a
+end
+
+local function normalizePlayerName(name)
+  if not name then return nil end
+  name = tostring(name)
+
+  name = string.gsub(name, "|c%x%x%x%x%x%x%x%x", "")
+  name = string.gsub(name, "|r", "")
+
+  local _, _, linked = string.find(name, "|H.-|h%[?([^%]|]+)%]?|h")
+  if linked and linked ~= "" then
+    name = linked
+  end
+
+  local _, _, bracketed = string.find(name, "^%[(.+)%]$")
+  if bracketed and bracketed ~= "" then
+    name = bracketed
+  end
+
+  name = string.gsub(name, "%-.*$", "")
+  name = string.gsub(name, "^%s+", "")
+  name = string.gsub(name, "%s+$", "")
+  if name == "" then return nil end
+  return name
 end
 
 local function createMinimapButton()
@@ -769,7 +938,7 @@ local function createMinimapButton()
 end
 
 -- Approach A: parse system message (English clients)
--- Returns: name, type ("leave" or "kick")
+-- Returns: name, type ("leave", "kick", "promote", "demote")
 local function parseLeftGuild(systemMsg)
   if not systemMsg then return nil, nil end
   -- Voluntary leave: "Name has left the guild."
@@ -820,6 +989,68 @@ local function parseLeftGuild(systemMsg)
   if n then return n, "kick" end
   _, _, n = string.find(systemMsg, "^You have removed (.+) from the guild$")
   if n then return n, "kick" end
+
+  -- Promotion variants
+  -- "Actor has promoted Target to Rank"
+  _, _, n = string.find(systemMsg, "^.+ has promoted (.+) to .+%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^.+ has promoted (.+) to .+$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been promoted to .+%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been promoted to .+$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been promoted%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been promoted$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) was promoted to .+%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) was promoted to .+$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) was promoted%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^(.+) was promoted$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^You have promoted (.+) to .+%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^You have promoted (.+) to .+$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^You have promoted (.+)%.$")
+  if n then return n, "promote" end
+  _, _, n = string.find(systemMsg, "^You have promoted (.+)$")
+  if n then return n, "promote" end
+
+  -- Demotion variants
+  -- "Actor has demoted Target to Rank"
+  _, _, n = string.find(systemMsg, "^.+ has demoted (.+) to .+%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^.+ has demoted (.+) to .+$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been demoted to .+%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been demoted to .+$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been demoted%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) has been demoted$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) was demoted to .+%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) was demoted to .+$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) was demoted%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^(.+) was demoted$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^You have demoted (.+) to .+%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^You have demoted (.+) to .+$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^You have demoted (.+)%.$")
+  if n then return n, "demote" end
+  _, _, n = string.find(systemMsg, "^You have demoted (.+)$")
+  if n then return n, "demote" end
 
   return nil, nil
 end
@@ -890,6 +1121,13 @@ f:SetScript("OnEvent", function()
     
     local name, quoteType = parseLeftGuild(arg1)
     if name then
+      name = normalizePlayerName(name)
+      if not name then return end
+
+      if quoteType == "promote" or quoteType == "demote" then
+        scanRoster()
+      end
+
       local rankIndex = roster[name]
       if rankIndex == nil then
         rankIndex = knownRanks[name]
@@ -1037,6 +1275,14 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Kick Quotes ("..table.getn(GLS_DB.quotesKick).."):|r")
     for i=1, table.getn(GLS_DB.quotesKick) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesKick[i])
+    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Promotion Quotes ("..table.getn(GLS_DB.quotesPromote).."):|r")
+    for i=1, table.getn(GLS_DB.quotesPromote) do
+      DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesPromote[i])
+    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Demotion Quotes ("..table.getn(GLS_DB.quotesDemote).."):|r")
+    for i=1, table.getn(GLS_DB.quotesDemote) do
+      DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesDemote[i])
     end
     return
   end
