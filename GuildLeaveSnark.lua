@@ -11,6 +11,7 @@ local defaults = {
   channel = "GUILD",     -- "GUILD", "SAY", "PARTY", "RAID"
   prefixName = true,     -- "Name: quote" vs just quote
   rankMinIndex = -1,     -- -1 = all ranks, otherwise only rankIndex >= this value
+  minimapAngle = 225,    -- minimap button position angle
   throttleSeconds = 10,  -- prevent spam during mass changes
   debug = false,         -- print system messages for debugging
   color = "ff9900",      -- hex color (default: orange)
@@ -118,7 +119,7 @@ local function shouldPostForRank(rankIndex)
   return rankIndex >= minIndex
 end
 
-local function postSnark(name, quoteType, rankIndex)
+local function postSnark(name, quoteType, rankIndex, bypassThrottle)
   if not GLS_DB.enabled then return end
   if not shouldPostForRank(rankIndex) then
     if GLS_DB.debug then
@@ -126,7 +127,7 @@ local function postSnark(name, quoteType, rankIndex)
     end
     return
   end
-  if throttled() then return end
+  if not bypassThrottle and throttled() then return end
 
   local quote = pickQuote(quoteType)
   if not quote then return end
@@ -140,6 +141,322 @@ local function postSnark(name, quoteType, rankIndex)
   end
 
   SendChatMessage(msg, GLS_DB.channel or "GUILD")
+end
+
+local channels = {"GUILD", "SAY", "PARTY", "RAID"}
+
+local function nextChannel(current)
+  for i=1, table.getn(channels) do
+    if channels[i] == current then
+      if i >= table.getn(channels) then
+        return channels[1]
+      end
+      return channels[i + 1]
+    end
+  end
+  return "GUILD"
+end
+
+local optionsFrame
+local optionsControls = {}
+local minimapButton
+
+local function updateOptionsUI()
+  if not optionsFrame then return end
+
+  optionsControls.enabled:SetChecked(GLS_DB.enabled)
+  optionsControls.prefix:SetChecked(GLS_DB.prefixName)
+  optionsControls.debug:SetChecked(GLS_DB.debug)
+  optionsControls.channelButton:SetText("Channel: " .. (GLS_DB.channel or "GUILD"))
+
+  if GLS_DB.rankMinIndex and GLS_DB.rankMinIndex >= 0 then
+    optionsControls.rankEdit:SetText(tostring(GLS_DB.rankMinIndex))
+  else
+    optionsControls.rankEdit:SetText("all")
+  end
+
+  optionsControls.colorEdit:SetText(GLS_DB.color or "ff9900")
+end
+
+local function applyRankFilterFromEdit()
+  local v = string.lower(optionsControls.rankEdit:GetText() or "")
+  if v == "" or v == "all" then
+    GLS_DB.rankMinIndex = -1
+    optionsControls.rankEdit:SetText("all")
+    return
+  end
+
+  local n = tonumber(v)
+  if n and n >= 0 then
+    GLS_DB.rankMinIndex = math.floor(n)
+    optionsControls.rankEdit:SetText(tostring(GLS_DB.rankMinIndex))
+  else
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid rank filter. Use all or a number >= 0.|r")
+    if GLS_DB.rankMinIndex and GLS_DB.rankMinIndex >= 0 then
+      optionsControls.rankEdit:SetText(tostring(GLS_DB.rankMinIndex))
+    else
+      optionsControls.rankEdit:SetText("all")
+    end
+  end
+end
+
+local function applyColorFromEdit()
+  local hex = optionsControls.colorEdit:GetText() or ""
+  hex = string.gsub(hex, "^#", "")
+  if string.len(hex) == 6 and string.find(hex, "^%x%x%x%x%x%x$") then
+    GLS_DB.color = string.lower(hex)
+    optionsControls.colorEdit:SetText(GLS_DB.color)
+  else
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid hex color. Use 6 digits (e.g., ff9900).|r")
+    optionsControls.colorEdit:SetText(GLS_DB.color or "ff9900")
+  end
+end
+
+local function createOptionsUI()
+  if optionsFrame then return end
+
+  local frame = CreateFrame("Frame", "GLS_OptionsFrame", UIParent)
+  frame:SetWidth(360)
+  frame:SetHeight(290)
+  frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  frame:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = true,
+    tileSize = 32,
+    edgeSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 }
+  })
+  frame:SetMovable(true)
+  frame:EnableMouse(true)
+  frame:RegisterForDrag("LeftButton")
+  frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+  frame:Hide()
+
+  local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  title:SetPoint("TOP", frame, "TOP", 0, -16)
+  title:SetText("GuildLeaveSnark")
+
+  local subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  subtitle:SetPoint("TOP", title, "BOTTOM", 0, -6)
+  subtitle:SetText("Options")
+
+  local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+  closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -6)
+
+  local enabled = CreateFrame("CheckButton", "GLS_EnabledCheck", frame, "UICheckButtonTemplate")
+  enabled:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -52)
+  enabled:SetScript("OnClick", function()
+    GLS_DB.enabled = enabled:GetChecked() and true or false
+  end)
+  _G[enabled:GetName() .. "Text"]:SetText("Enabled")
+  optionsControls.enabled = enabled
+
+  local prefix = CreateFrame("CheckButton", "GLS_PrefixCheck", frame, "UICheckButtonTemplate")
+  prefix:SetPoint("TOPLEFT", enabled, "BOTTOMLEFT", 0, -8)
+  prefix:SetScript("OnClick", function()
+    GLS_DB.prefixName = prefix:GetChecked() and true or false
+  end)
+  _G[prefix:GetName() .. "Text"]:SetText("Prefix player name")
+  optionsControls.prefix = prefix
+
+  local debug = CreateFrame("CheckButton", "GLS_DebugCheck", frame, "UICheckButtonTemplate")
+  debug:SetPoint("TOPLEFT", prefix, "BOTTOMLEFT", 0, -8)
+  debug:SetScript("OnClick", function()
+    GLS_DB.debug = debug:GetChecked() and true or false
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark debug mode =|r " .. tostring(GLS_DB.debug))
+    if GLS_DB.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r Debug logging enabled for CHAT_MSG_SYSTEM.")
+    end
+  end)
+  _G[debug:GetName() .. "Text"]:SetText("Debug mode")
+  optionsControls.debug = debug
+
+  local channelButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  channelButton:SetWidth(165)
+  channelButton:SetHeight(22)
+  channelButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -26, -56)
+  channelButton:SetScript("OnClick", function()
+    GLS_DB.channel = nextChannel(GLS_DB.channel)
+    channelButton:SetText("Channel: " .. GLS_DB.channel)
+  end)
+  optionsControls.channelButton = channelButton
+
+  local rankLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  rankLabel:SetPoint("TOPLEFT", channelButton, "BOTTOMLEFT", 0, -18)
+  rankLabel:SetText("Rank filter")
+
+  local rankEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+  rankEdit:SetWidth(90)
+  rankEdit:SetHeight(20)
+  rankEdit:SetAutoFocus(false)
+  rankEdit:SetPoint("TOPLEFT", rankLabel, "BOTTOMLEFT", 0, -6)
+  rankEdit:SetScript("OnEnterPressed", function(self)
+    applyRankFilterFromEdit()
+    self:ClearFocus()
+  end)
+  optionsControls.rankEdit = rankEdit
+
+  local rankApply = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  rankApply:SetWidth(60)
+  rankApply:SetHeight(22)
+  rankApply:SetPoint("LEFT", rankEdit, "RIGHT", 8, 0)
+  rankApply:SetText("Set")
+  rankApply:SetScript("OnClick", applyRankFilterFromEdit)
+
+  local rankHelp = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  rankHelp:SetWidth(170)
+  rankHelp:SetJustifyH("LEFT")
+  rankHelp:SetPoint("TOPLEFT", rankEdit, "BOTTOMLEFT", 0, -4)
+  rankHelp:SetText("all or index (0=GM)")
+
+  local colorLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  colorLabel:SetPoint("TOPLEFT", rankHelp, "BOTTOMLEFT", 0, -10)
+  colorLabel:SetText("Message color")
+
+  local colorEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+  colorEdit:SetWidth(90)
+  colorEdit:SetHeight(20)
+  colorEdit:SetAutoFocus(false)
+  colorEdit:SetPoint("TOPLEFT", colorLabel, "BOTTOMLEFT", 0, -6)
+  colorEdit:SetScript("OnEnterPressed", function(self)
+    applyColorFromEdit()
+    self:ClearFocus()
+  end)
+  optionsControls.colorEdit = colorEdit
+
+  local colorApply = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  colorApply:SetWidth(60)
+  colorApply:SetHeight(22)
+  colorApply:SetPoint("LEFT", colorEdit, "RIGHT", 8, 0)
+  colorApply:SetText("Set")
+  colorApply:SetScript("OnClick", applyColorFromEdit)
+
+  local testBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  testBtn:SetWidth(120)
+  testBtn:SetHeight(22)
+  testBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22, 22)
+  testBtn:SetText("Send Test")
+  testBtn:SetScript("OnClick", function() postSnark(UnitName("player") or "Someone", "leave", 99, true) end)
+
+  local closeBottomBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  closeBottomBtn:SetWidth(90)
+  closeBottomBtn:SetHeight(22)
+  closeBottomBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 22)
+  closeBottomBtn:SetText("Close")
+  closeBottomBtn:SetScript("OnClick", function() frame:Hide() end)
+
+  optionsFrame = frame
+end
+
+local function toggleOptionsUI()
+  if not optionsFrame then
+    createOptionsUI()
+  end
+
+  if optionsFrame:IsShown() then
+    optionsFrame:Hide()
+  else
+    updateOptionsUI()
+    optionsFrame:Show()
+  end
+end
+
+local function updateMinimapButtonPosition()
+  if not minimapButton then return end
+  local angle = (GLS_DB.minimapAngle or 225) * (math.pi / 180)
+  local radius = 80
+  minimapButton:ClearAllPoints()
+  minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * radius, math.sin(angle) * radius)
+end
+
+local function getAngleDegrees(dx, dy)
+  local atan2fn = math.atan2 or atan2
+  if atan2fn then
+    return math.deg(atan2fn(dy, dx))
+  end
+
+  if dx == 0 then
+    if dy > 0 then return 90 end
+    if dy < 0 then return -90 end
+    return 0
+  end
+
+  local a = math.deg(math.atan(dy / dx))
+  if dx < 0 then
+    a = a + 180
+  end
+  return a
+end
+
+local function createMinimapButton()
+  if minimapButton then return end
+
+  local b = CreateFrame("Button", "GLS_MinimapButton", Minimap)
+  b:SetWidth(32)
+  b:SetHeight(32)
+  b:SetFrameStrata("MEDIUM")
+  b:SetMovable(true)
+  b:EnableMouse(true)
+  b:RegisterForDrag("LeftButton")
+
+  b.icon = b:CreateTexture(nil, "OVERLAY")
+  b.icon:SetTexture("Interface\\Icons\\Ability_Racial_Cannibalize")
+  b.icon:SetWidth(20)
+  b.icon:SetHeight(20)
+  b.icon:SetPoint("CENTER", b, "CENTER", 0, 1)
+  b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+  b.border = b:CreateTexture(nil, "OVERLAY")
+  b.border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  b.border:SetWidth(54)
+  b.border:SetHeight(54)
+  b.border:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+
+  b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+  b:SetScript("OnClick", function()
+    toggleOptionsUI()
+  end)
+
+  b:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+    GameTooltip:SetText("GuildLeaveSnark")
+    GameTooltip:AddLine("Left-click: Toggle options", 1, 1, 1)
+    GameTooltip:AddLine("Drag: Move minimap button", 1, 1, 1)
+    GameTooltip:Show()
+  end)
+
+  b:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+  end)
+
+  local dragging = false
+
+  b:SetScript("OnDragStart", function()
+    dragging = true
+  end)
+
+  b:SetScript("OnDragStop", function()
+    dragging = false
+  end)
+
+  b:SetScript("OnUpdate", function()
+    if dragging then
+      local mx, my = Minimap:GetCenter()
+      local cx, cy = GetCursorPosition()
+      local scale = Minimap:GetEffectiveScale()
+      cx = cx / scale
+      cy = cy / scale
+      GLS_DB.minimapAngle = getAngleDegrees(cx - mx, cy - my)
+      updateMinimapButtonPosition()
+    end
+  end)
+
+  minimapButton = b
+  updateMinimapButtonPosition()
+  b:Show()
 end
 
 -- Approach A: parse system message (English clients)
@@ -203,6 +520,8 @@ f:SetScript("OnEvent", function()
     initDB()
     math.randomseed(GetTime() * 1000)
     scanRoster()
+    createOptionsUI()
+    createMinimapButton()
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark loaded.|r  /gls for options")
     return
   end
@@ -220,7 +539,7 @@ f:SetScript("OnEvent", function()
     
     local name, quoteType = parseLeftGuild(arg1)
     if name then
-      postSnark(name, quoteType)
+      postSnark(name, quoteType, roster[name])
       -- Also update roster baseline
       scanRoster()
     end
@@ -249,6 +568,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls color <hex>  (e.g., ff9900 for orange)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls rank all|<index>  (0=GM, bigger number=lower rank)")
+    DEFAULT_CHAT_FRAME:AddMessage("/gls ui  (toggle options window)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls addleave <quote>  (add leave quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls addkick <quote>  (add kick quote)')
@@ -339,6 +659,11 @@ SlashCmdList["GLS"] = function(msg)
     return
   end
 
+  if cmd == "ui" then
+    toggleOptionsUI()
+    return
+  end
+
   if cmd == "add" then
     if rest and rest ~= "" then
       table.insert(GLS_DB.quotesLeave, rest)
@@ -363,7 +688,7 @@ SlashCmdList["GLS"] = function(msg)
 
   if cmd == "test" then
     local name = rest ~= "" and rest or "Someone"
-    postSnark(name, "leave", 99)
+    postSnark(name, "leave", 99, true)
     return
   end
 

@@ -13,6 +13,12 @@
     "GetNumGuildMembers",
     "GetGuildRosterInfo",
     "SlashCmdList",
+    "UIParent",
+    "Minimap",
+    "GameTooltip",
+    "UnitName",
+    "GetCursorPosition",
+    "atan2",
     "event",
     "arg1"
   ]

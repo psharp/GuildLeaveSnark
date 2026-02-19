@@ -6,6 +6,9 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 
 - **Automatic Detection**: Monitors guild roster and detects when members leave or get kicked
 - **40+ Built-in Snarky Quotes**: Separate pools for voluntary leaves vs guild kicks
+- **Visual Options Window**: Configure settings in-game without typing commands
+- **Minimap Button**: Click to open options, drag to reposition around minimap
+- **Rank Filter**: Restrict output by guild rank index (e.g., only lower ranks)
 - **Customizable**: Add your own quotes and remove unwanted ones
 - **Smart Throttling**: 10-second cooldown prevents spam during mass exodus events
 - **Flexible Output**: Post to guild, say, party, or raid chat
@@ -29,6 +32,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 /gls help           - Show all commands
 /gls on             - Enable the addon
 /gls off            - Disable the addon
+/gls ui             - Toggle the visual options window
 /gls test <name>    - Test with a fake name (e.g., /gls test Bob)
 ```
 
@@ -38,8 +42,17 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 /gls channel <type>      - Set output channel: guild|say|party|raid
 /gls prefix on|off       - Toggle name prefix (e.g., "Name: quote")
 /gls color <hex>         - Set message color (e.g., ff9900 for orange, ff0000 for red)
+/gls rank all|<index>    - Set rank filter (0=GM, larger number=lower rank)
 /gls debug on|off        - Enable debug mode (shows all system messages)
 ```
+
+### Visual Interface (Minimap Button)
+
+- Left-click the minimap button to open/close the options window
+- Drag the minimap button to move it around the minimap
+- Options window includes toggles for Enabled / Prefix / Debug
+- Includes channel cycling button, rank filter input, and color input
+- Includes a "Send Test" button to preview output quickly
 
 ### Managing Quotes
 
@@ -122,6 +135,7 @@ The addon comes with **25 leave quotes** and **15 kick quotes**, including:
 - **Enabled**: Yes
 - **Channel**: Guild chat
 - **Name Prefix**: Enabled (shows "PlayerName: quote")
+- **Rank Filter**: All ranks
 - **Color**: Orange (#ff9900)
 - **Throttle**: 10 seconds between messages
 
@@ -138,6 +152,12 @@ A: It parses English system messages ("has left" / "has been kicked out"). For n
 
 **Q: Can I disable it temporarily?**  
 A: Yes! `/gls off` to disable, `/gls on` to re-enable.
+
+**Q: Can I configure it without slash commands?**  
+A: Yes. Use the minimap button to open the visual options window.
+
+**Q: Can I filter output by guild rank?**  
+A: Yes. Use `/gls rank all` for everyone, or `/gls rank <index>` where `0=GM` and larger numbers are lower ranks.
 
 **Q: What if multiple people leave at once?**  
 A: The 10-second throttle prevents spam. Only one message will fire.
@@ -157,7 +177,13 @@ A: Yes! `/gls clear` removes all custom quotes and restores the defaults.
 - Check if addon is enabled: `/gls on`
 - Verify your guild chat permissions
 - Make sure you're actually in a guild
+- Check rank filter: `/gls rank` (or set `/gls rank all`)
 - Enable debug mode to see system messages: `/gls debug on`
+
+**"I can't find the options window"**
+- Click the minimap button to toggle the UI
+- Or run `/gls ui`
+- If needed, `/reload` to reinitialize UI elements
 
 **"Guild kicks aren't triggering the addon"**
 - Enable debug mode: `/gls debug on`
