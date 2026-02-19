@@ -185,21 +185,227 @@ local function rgbToHex(r, g, b)
   return string.format("%02x%02x%02x", rr, gg, bb)
 end
 
+local function quotesToText(quotes)
+  if type(quotes) ~= "table" then return "" end
+
+  local lines = {}
+  for i=1, table.getn(quotes) do
+    local q = quotes[i]
+    if type(q) == "string" and q ~= "" then
+      table.insert(lines, q)
+    elseif q ~= nil then
+      table.insert(lines, tostring(q))
+    end
+  end
+
+  return table.concat(lines, "\n")
+end
+
+local function textToQuotes(text)
+  local out = {}
+  text = text or ""
+
+  if string.gmatch then
+    for line in string.gmatch(text, "[^\r\n]+") do
+      line = string.gsub(line, "^%s+", "")
+      line = string.gsub(line, "%s+$", "")
+      if line ~= "" then
+        table.insert(out, line)
+      end
+    end
+  else
+    local gfind = rawget(string, "gfind")
+    if gfind then
+      for line in gfind(text, "[^\r\n]+") do
+        line = string.gsub(line, "^%s+", "")
+        line = string.gsub(line, "%s+$", "")
+        if line ~= "" then
+          table.insert(out, line)
+        end
+      end
+    end
+  end
+
+  return out
+end
+
+local function applyQuotesFromEditor(quoteType)
+  local isKick = quoteType == "kick"
+  local editor = isKick and optionsControls.kickQuotesEdit or optionsControls.leaveQuotesEdit
+  if not editor then return end
+
+  local parsed = textToQuotes(editor:GetText())
+  if table.getn(parsed) < 1 then
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff6666At least one quote is required.|r")
+    return
+  end
+
+  if isKick then
+    GLS_DB.quotesKick = parsed
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved kick quotes:|r " .. table.getn(parsed))
+  else
+    GLS_DB.quotesLeave = parsed
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffSaved leave quotes:|r " .. table.getn(parsed))
+  end
+end
+
+local function setupQuoteEditorScrolling(scrollFrame, editBox)
+  local scrollBar = nil
+  if scrollFrame and scrollFrame.GetName then
+    local n = scrollFrame:GetName()
+    if n and n ~= "" then
+      scrollBar = _G[n .. "ScrollBar"]
+    end
+  end
+
+  local function updateScrollMetrics()
+    local minHeight = scrollFrame:GetHeight()
+    local contentHeight
+    if editBox.GetStringHeight then
+      contentHeight = editBox:GetStringHeight() + 20
+    else
+      local text = editBox:GetText() or ""
+      local lines = 1
+      if string.gmatch then
+        for _ in string.gmatch(text, "\n") do
+          lines = lines + 1
+        end
+      else
+        local gfind = rawget(string, "gfind")
+        if gfind then
+          for _ in gfind(text, "\n") do
+            lines = lines + 1
+          end
+        end
+      end
+      contentHeight = (lines * 14) + 20
+    end
+    if contentHeight < minHeight then
+      contentHeight = minHeight
+    end
+    editBox:SetHeight(contentHeight)
+
+    local maxScroll = contentHeight - minHeight
+    if maxScroll < 0 then maxScroll = 0 end
+
+    local current = scrollFrame:GetVerticalScroll()
+    if current > maxScroll then
+      current = maxScroll
+      scrollFrame:SetVerticalScroll(current)
+    end
+
+    if scrollBar then
+      scrollBar:SetMinMaxValues(0, maxScroll)
+      scrollBar:SetValue(current)
+    end
+  end
+
+  editBox.GLS_UpdateScrollMetrics = updateScrollMetrics
+
+  editBox:SetScript("OnTextChanged", function()
+    updateScrollMetrics()
+  end)
+
+  editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
+    local offset = scrollFrame:GetVerticalScroll()
+    local top = -offset
+    local bottom = top - scrollFrame:GetHeight()
+
+    if y > top then
+      scrollFrame:SetVerticalScroll(-y)
+    elseif (y - h) < bottom then
+      scrollFrame:SetVerticalScroll(-(y - scrollFrame:GetHeight() + h))
+    end
+
+    if scrollBar then
+      scrollBar:SetValue(scrollFrame:GetVerticalScroll())
+    end
+  end)
+
+  scrollFrame:SetScript("OnVerticalScroll", function()
+    if scrollBar then
+      scrollBar:SetValue(arg1)
+    end
+  end)
+
+  if scrollBar then
+    scrollBar:SetScript("OnValueChanged", function()
+      scrollFrame:SetVerticalScroll(arg1)
+    end)
+  end
+
+  scrollFrame:EnableMouseWheel(true)
+  scrollFrame:SetScript("OnMouseWheel", function()
+    local step = 20
+    local current = scrollFrame:GetVerticalScroll()
+    local delta = arg1 or 0
+    if delta > 0 then
+      current = current - step
+      if current < 0 then current = 0 end
+    else
+      current = current + step
+      local maxScroll = editBox:GetHeight() - scrollFrame:GetHeight()
+      if maxScroll < 0 then maxScroll = 0 end
+      if current > maxScroll then current = maxScroll end
+    end
+    scrollFrame:SetVerticalScroll(current)
+
+    if scrollBar then
+      scrollBar:SetValue(current)
+    end
+  end)
+
+  updateScrollMetrics()
+end
+
 local function updateOptionsUI()
   if not optionsFrame then return end
 
-  optionsControls.enabled:SetChecked(GLS_DB.enabled)
-  optionsControls.prefix:SetChecked(GLS_DB.prefixName)
-  optionsControls.debug:SetChecked(GLS_DB.debug)
-  optionsControls.channelButton:SetText("Channel: " .. (GLS_DB.channel or "GUILD"))
-
-  if GLS_DB.rankMinIndex and GLS_DB.rankMinIndex >= 0 then
-    optionsControls.rankEdit:SetText(tostring(GLS_DB.rankMinIndex))
-  else
-    optionsControls.rankEdit:SetText("all")
+  if optionsControls.enabled then
+    optionsControls.enabled:SetChecked(GLS_DB.enabled and true or false)
+  end
+  if optionsControls.prefix then
+    optionsControls.prefix:SetChecked(GLS_DB.prefixName and true or false)
+  end
+  if optionsControls.debug then
+    optionsControls.debug:SetChecked(GLS_DB.debug and true or false)
+  end
+  if optionsControls.channelButton then
+    optionsControls.channelButton:SetText("Channel: " .. tostring(GLS_DB.channel or "GUILD"))
   end
 
-  optionsControls.colorButton:SetText("Pick Color: #" .. (GLS_DB.color or "ff9900"))
+  if optionsControls.rankEdit then
+    local rankMin = tonumber(GLS_DB.rankMinIndex)
+    if rankMin and rankMin >= 0 then
+      rankMin = math.floor(rankMin)
+      GLS_DB.rankMinIndex = rankMin
+      optionsControls.rankEdit:SetText(tostring(rankMin))
+    else
+      GLS_DB.rankMinIndex = -1
+      optionsControls.rankEdit:SetText("all")
+    end
+  end
+
+  local colorHex = GLS_DB.color
+  if type(colorHex) ~= "string" or string.len(colorHex) ~= 6 then
+    colorHex = "ff9900"
+  end
+
+  if optionsControls.colorButton then
+    optionsControls.colorButton:SetText(string.format("Pick Color: #%s", colorHex))
+  end
+  if optionsControls.leaveQuotesEdit then
+    optionsControls.leaveQuotesEdit:SetText(quotesToText(GLS_DB.quotesLeave))
+    if optionsControls.leaveQuotesEdit.GLS_UpdateScrollMetrics then
+      optionsControls.leaveQuotesEdit.GLS_UpdateScrollMetrics()
+    end
+  end
+  if optionsControls.kickQuotesEdit then
+    optionsControls.kickQuotesEdit:SetText(quotesToText(GLS_DB.quotesKick))
+    if optionsControls.kickQuotesEdit.GLS_UpdateScrollMetrics then
+      optionsControls.kickQuotesEdit.GLS_UpdateScrollMetrics()
+    end
+  end
 end
 
 local function applyRankFilterFromEdit()
@@ -249,8 +455,8 @@ local function createOptionsUI()
   if optionsFrame then return end
 
   local frame = CreateFrame("Frame", "GLS_OptionsFrame", UIParent)
-  frame:SetWidth(360)
-  frame:SetHeight(290)
+  frame:SetWidth(700)
+  frame:SetHeight(500)
   frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   frame:SetBackdrop({
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -285,15 +491,18 @@ local function createOptionsUI()
   subtitle:SetPoint("TOP", title, "BOTTOM", 0, -6)
   subtitle:SetText("Options")
 
-  local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+  local closeBtn = CreateFrame("Button", "GLS_OptionsCloseButton", frame, "UIPanelCloseButton")
   closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -6)
 
   local enabled = CreateFrame("CheckButton", "GLS_EnabledCheck", frame, "UICheckButtonTemplate")
-  enabled:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -52)
+  enabled:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -56)
   enabled:SetScript("OnClick", function()
     GLS_DB.enabled = enabled:GetChecked() and true or false
   end)
-  _G[enabled:GetName() .. "Text"]:SetText("Enabled")
+  local enabledText = _G["GLS_EnabledCheckText"] or (enabled.GetName and _G[(enabled:GetName() or "") .. "Text"])
+  if enabledText then
+    enabledText:SetText("Enabled")
+  end
   optionsControls.enabled = enabled
 
   local prefix = CreateFrame("CheckButton", "GLS_PrefixCheck", frame, "UICheckButtonTemplate")
@@ -301,11 +510,14 @@ local function createOptionsUI()
   prefix:SetScript("OnClick", function()
     GLS_DB.prefixName = prefix:GetChecked() and true or false
   end)
-  _G[prefix:GetName() .. "Text"]:SetText("Prefix player name")
+  local prefixText = _G["GLS_PrefixCheckText"] or (prefix.GetName and _G[(prefix:GetName() or "") .. "Text"])
+  if prefixText then
+    prefixText:SetText("Prefix player name")
+  end
   optionsControls.prefix = prefix
 
   local debug = CreateFrame("CheckButton", "GLS_DebugCheck", frame, "UICheckButtonTemplate")
-  debug:SetPoint("TOPLEFT", prefix, "BOTTOMLEFT", 0, -8)
+  debug:SetPoint("TOPLEFT", frame, "TOPLEFT", 245, -56)
   debug:SetScript("OnClick", function()
     GLS_DB.debug = debug:GetChecked() and true or false
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark debug mode =|r " .. tostring(GLS_DB.debug))
@@ -313,13 +525,16 @@ local function createOptionsUI()
       DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r Debug logging enabled for CHAT_MSG_SYSTEM.")
     end
   end)
-  _G[debug:GetName() .. "Text"]:SetText("Debug mode")
+  local debugText = _G["GLS_DebugCheckText"] or (debug.GetName and _G[(debug:GetName() or "") .. "Text"])
+  if debugText then
+    debugText:SetText("Debug mode")
+  end
   optionsControls.debug = debug
 
-  local channelButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-  channelButton:SetWidth(165)
+  local channelButton = CreateFrame("Button", "GLS_ChannelButton", frame, "UIPanelButtonTemplate")
+  channelButton:SetWidth(190)
   channelButton:SetHeight(22)
-  channelButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -26, -56)
+  channelButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 468, -56)
   channelButton:SetScript("OnClick", function()
     GLS_DB.channel = nextChannel(GLS_DB.channel)
     channelButton:SetText("Channel: " .. GLS_DB.channel)
@@ -327,7 +542,7 @@ local function createOptionsUI()
   optionsControls.channelButton = channelButton
 
   local rankLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  rankLabel:SetPoint("TOPLEFT", channelButton, "BOTTOMLEFT", 0, -18)
+  rankLabel:SetPoint("TOPLEFT", debug, "BOTTOMLEFT", 4, -12)
   rankLabel:SetText("Rank filter")
 
   local rankEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
@@ -341,7 +556,7 @@ local function createOptionsUI()
   end)
   optionsControls.rankEdit = rankEdit
 
-  local rankApply = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local rankApply = CreateFrame("Button", "GLS_RankApplyButton", frame, "UIPanelButtonTemplate")
   rankApply:SetWidth(60)
   rankApply:SetHeight(22)
   rankApply:SetPoint("LEFT", rankEdit, "RIGHT", 8, 0)
@@ -355,24 +570,84 @@ local function createOptionsUI()
   rankHelp:SetText("all or index (0=GM)")
 
   local colorLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  colorLabel:SetPoint("TOPLEFT", rankHelp, "BOTTOMLEFT", 0, -10)
+  colorLabel:SetPoint("TOPLEFT", channelButton, "BOTTOMLEFT", 0, -14)
   colorLabel:SetText("Message color")
 
-  local colorButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local colorButton = CreateFrame("Button", "GLS_ColorButton", frame, "UIPanelButtonTemplate")
   colorButton:SetWidth(170)
   colorButton:SetHeight(22)
   colorButton:SetPoint("TOPLEFT", colorLabel, "BOTTOMLEFT", 0, -6)
   colorButton:SetScript("OnClick", openColorPicker)
   optionsControls.colorButton = colorButton
 
-  local testBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local leaveLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  leaveLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -210)
+  leaveLabel:SetText("Leave quotes (one per line)")
+
+  local leaveSaveBtn = CreateFrame("Button", "GLS_LeaveSaveButton", frame, "UIPanelButtonTemplate")
+  leaveSaveBtn:SetWidth(80)
+  leaveSaveBtn:SetHeight(20)
+  leaveSaveBtn:SetPoint("LEFT", leaveLabel, "RIGHT", 8, 0)
+  leaveSaveBtn:SetText("Save")
+  leaveSaveBtn:SetScript("OnClick", function() applyQuotesFromEditor("leave") end)
+
+  local leaveScroll = CreateFrame("ScrollFrame", "GLS_LeaveQuotesScroll", frame, "UIPanelScrollFrameTemplate")
+  leaveScroll:SetWidth(300)
+  leaveScroll:SetHeight(220)
+  leaveScroll:SetPoint("TOPLEFT", leaveLabel, "BOTTOMLEFT", 0, -8)
+
+  local leaveEdit = CreateFrame("EditBox", nil, leaveScroll)
+  leaveEdit:SetWidth(278)
+  leaveEdit:SetHeight(220)
+  leaveEdit:SetAutoFocus(false)
+  leaveEdit:SetMultiLine(true)
+  leaveEdit:SetFontObject(ChatFontNormal)
+  leaveEdit:SetJustifyH("LEFT")
+  leaveEdit:SetJustifyV("TOP")
+  leaveEdit:SetPoint("TOPLEFT", leaveScroll, "TOPLEFT", 0, 0)
+  leaveEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  leaveScroll:SetScrollChild(leaveEdit)
+  setupQuoteEditorScrolling(leaveScroll, leaveEdit)
+  optionsControls.leaveQuotesEdit = leaveEdit
+
+  local kickLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  kickLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -210)
+  kickLabel:SetText("Kick quotes (one per line)")
+
+  local kickSaveBtn = CreateFrame("Button", "GLS_KickSaveButton", frame, "UIPanelButtonTemplate")
+  kickSaveBtn:SetWidth(80)
+  kickSaveBtn:SetHeight(20)
+  kickSaveBtn:SetPoint("LEFT", kickLabel, "RIGHT", 8, 0)
+  kickSaveBtn:SetText("Save")
+  kickSaveBtn:SetScript("OnClick", function() applyQuotesFromEditor("kick") end)
+
+  local kickScroll = CreateFrame("ScrollFrame", "GLS_KickQuotesScroll", frame, "UIPanelScrollFrameTemplate")
+  kickScroll:SetWidth(300)
+  kickScroll:SetHeight(220)
+  kickScroll:SetPoint("TOPLEFT", kickLabel, "BOTTOMLEFT", 0, -8)
+
+  local kickEdit = CreateFrame("EditBox", nil, kickScroll)
+  kickEdit:SetWidth(278)
+  kickEdit:SetHeight(220)
+  kickEdit:SetAutoFocus(false)
+  kickEdit:SetMultiLine(true)
+  kickEdit:SetFontObject(ChatFontNormal)
+  kickEdit:SetJustifyH("LEFT")
+  kickEdit:SetJustifyV("TOP")
+  kickEdit:SetPoint("TOPLEFT", kickScroll, "TOPLEFT", 0, 0)
+  kickEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  kickScroll:SetScrollChild(kickEdit)
+  setupQuoteEditorScrolling(kickScroll, kickEdit)
+  optionsControls.kickQuotesEdit = kickEdit
+
+  local testBtn = CreateFrame("Button", "GLS_TestButton", frame, "UIPanelButtonTemplate")
   testBtn:SetWidth(120)
   testBtn:SetHeight(22)
   testBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22, 22)
   testBtn:SetText("Send Test")
   testBtn:SetScript("OnClick", function() postSnark(UnitName("player") or "Someone", "leave", 99, true) end)
 
-  local closeBottomBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local closeBottomBtn = CreateFrame("Button", "GLS_CloseBottomButton", frame, "UIPanelButtonTemplate")
   closeBottomBtn:SetWidth(90)
   closeBottomBtn:SetHeight(22)
   closeBottomBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 22)

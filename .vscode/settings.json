@@ -20,6 +20,7 @@
     "UnitName",
     "GetCursorPosition",
     "atan2",
+    "ChatFontNormal",
     "this",
     "event",
     "arg1"
