@@ -10,6 +10,7 @@ local defaults = {
   enabled = true,
   channel = "GUILD",     -- "GUILD", "SAY", "PARTY", "RAID"
   prefixName = true,     -- "Name: quote" vs just quote
+  complianceMode = false, -- plain-text safer mode for stricter server chat rules
   rankMinIndex = -1,     -- -1 = all ranks, otherwise only rankIndex >= this value
   minimapAngle = 225,    -- minimap button position angle
   throttleSeconds = 10,  -- prevent spam during mass changes
@@ -85,6 +86,40 @@ local defaults = {
   }
 }
 
+local complianceBlockedQuotePhrases = {
+  "trash took itself out",
+  "ban hammer",
+  "performance review: failed",
+  "not mourned",
+  "asked to leave. forcefully"
+}
+
+local function isComplianceSafeQuote(quote)
+  if not GLS_DB.complianceMode then return true end
+  local q = string.lower(tostring(quote or ""))
+  for i=1, table.getn(complianceBlockedQuotePhrases) do
+    if string.find(q, complianceBlockedQuotePhrases[i], 1, true) then
+      return false
+    end
+  end
+  return true
+end
+
+local function stripColorCodes(text)
+  text = tostring(text or "")
+  text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+  text = string.gsub(text, "|r", "")
+  return text
+end
+
+local function complianceEventLabel(quoteType)
+  if quoteType == "kick" then return "[KICKED]" end
+  if quoteType == "promote" then return "[PROMOTION]" end
+  if quoteType == "demote" then return "[DEMOTION]" end
+  if quoteType == "leave" then return "[LOST ONE]" end
+  return "[GUILD EVENT]"
+end
+
 local function initDB()
   if type(GLS_DB) ~= "table" then GLS_DB = {} end
   for k, v in pairs(defaults) do
@@ -134,15 +169,34 @@ local function pickQuote(quoteType)
   else
     q = GLS_DB.quotesLeave
   end
-  local n = table.getn(q)
-  if n < 1 then return nil end
-  return q[math.random(1, n)]
+  local candidates = {}
+  for i=1, table.getn(q) do
+    local quote = q[i]
+    if isComplianceSafeQuote(quote) then
+      table.insert(candidates, quote)
+    end
+  end
+
+  local n = table.getn(candidates)
+  if n < 1 then
+    if GLS_DB.complianceMode then
+      if quoteType == "promote" then return "Guild rank updated." end
+      if quoteType == "demote" then return "Guild rank updated." end
+      return "Guild roster updated."
+    end
+    return nil
+  end
+  return candidates[math.random(1, n)]
 end
 
 local lastFire = 0
 local function throttled()
   local now = GetTime()
-  if now - lastFire < (GLS_DB.throttleSeconds or 0) then
+  local throttleWindow = GLS_DB.throttleSeconds or 0
+  if GLS_DB.complianceMode and throttleWindow < 30 then
+    throttleWindow = 30
+  end
+  if now - lastFire < throttleWindow then
     return true
   end
   lastFire = now
@@ -188,11 +242,14 @@ local function postSnark(name, quoteType, rankIndex, bypassThrottle)
     return
   end
 
-  local color = GLS_DB.color or "ff9900"
   local msg
-  if GLS_DB.prefixName and name and name ~= "" then
+  if GLS_DB.complianceMode then
+    msg = complianceEventLabel(quoteType) .. ": " .. stripColorCodes(quote)
+  elseif GLS_DB.prefixName and name and name ~= "" then
+    local color = GLS_DB.color or "ff9900"
     msg = "|cff" .. color .. name .. ": " .. quote .. "|r"
   else
+    local color = GLS_DB.color or "ff9900"
     msg = "|cff" .. color .. quote .. "|r"
   end
 
@@ -475,6 +532,9 @@ local function updateOptionsUI()
   if optionsControls.debug then
     optionsControls.debug:SetChecked(GLS_DB.debug and true or false)
   end
+  if optionsControls.compliance then
+    optionsControls.compliance:SetChecked(GLS_DB.complianceMode and true or false)
+  end
   if optionsControls.channelButton then
     optionsControls.channelButton:SetText("Channel: " .. tostring(GLS_DB.channel or "GUILD"))
   end
@@ -651,6 +711,18 @@ local function createOptionsUI()
   end
   optionsControls.debug = debug
 
+  local compliance = CreateFrame("CheckButton", "GLS_ComplianceCheck", frame, "UICheckButtonTemplate")
+  compliance:SetPoint("TOPLEFT", debug, "BOTTOMLEFT", 0, -8)
+  compliance:SetScript("OnClick", function()
+    GLS_DB.complianceMode = compliance:GetChecked() and true or false
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r " .. tostring(GLS_DB.complianceMode))
+  end)
+  local complianceText = _G["GLS_ComplianceCheckText"] or (compliance.GetName and _G[(compliance:GetName() or "") .. "Text"])
+  if complianceText then
+    complianceText:SetText("Compliance mode")
+  end
+  optionsControls.compliance = compliance
+
   local channelButton = CreateFrame("Button", "GLS_ChannelButton", frame, "UIPanelButtonTemplate")
   channelButton:SetWidth(190)
   channelButton:SetHeight(22)
@@ -662,7 +734,7 @@ local function createOptionsUI()
   optionsControls.channelButton = channelButton
 
   local rankLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  rankLabel:SetPoint("TOPLEFT", debug, "BOTTOMLEFT", 4, -12)
+  rankLabel:SetPoint("TOPLEFT", compliance, "BOTTOMLEFT", 4, -12)
   rankLabel:SetText("Rank filter")
 
   local rankEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
@@ -1222,6 +1294,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls rank all|<index>  (0=GM, bigger number=lower rank)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls ui  (toggle options window)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
+    DEFAULT_CHAT_FRAME:AddMessage("/gls compliance on|off  (plain-text safer mode)")
     DEFAULT_CHAT_FRAME:AddMessage('/gls addleave <quote>  (add leave quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls addkick <quote>  (add kick quote)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls addpromotion <quote>  (add promotion quote)')
@@ -1314,6 +1387,32 @@ SlashCmdList["GLS"] = function(msg)
     if GLS_DB.debug then
       DEFAULT_CHAT_FRAME:AddMessage("|cffff9900All CHAT_MSG_SYSTEM messages will be printed.|r")
     end
+    return
+  end
+
+  if cmd == "compliance" then
+    rest = string.lower(rest or "")
+    if rest == "" then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r " .. tostring(GLS_DB.complianceMode))
+      return
+    end
+
+    if rest == "on" or rest == "1" or rest == "true" then
+      GLS_DB.complianceMode = true
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r true")
+      DEFAULT_CHAT_FRAME:AddMessage("|cffffcc66Compliance mode uses plain text, stricter throttle, and safer quote filtering.|r")
+      updateOptionsUI()
+      return
+    end
+
+    if rest == "off" or rest == "0" or rest == "false" then
+      GLS_DB.complianceMode = false
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r false")
+      updateOptionsUI()
+      return
+    end
+
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls compliance on|off|r")
     return
   end
 

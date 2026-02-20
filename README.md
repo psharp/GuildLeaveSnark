@@ -9,6 +9,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 - **Visual Options Window**: Configure settings in-game without typing commands
 - **Minimap Button**: Click to open options, drag to reposition around minimap
 - **Rank Filter**: Restrict output by guild rank index (e.g., only lower ranks)
+- **Compliance Mode**: Plain-text output, safer quote filtering, and stricter throttling
 - **Customizable**: Add your own quotes and remove unwanted ones
 - **Smart Throttling**: 10-second cooldown prevents spam during mass exodus events
 - **Flexible Output**: Post to guild, say, party, or raid chat
@@ -46,6 +47,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 /gls color <hex>         - Set message color (e.g., ff9900 for orange, ff0000 for red)
 /gls rank all|<index>    - Set rank filter (0=GM, larger number=lower rank)
 /gls debug on|off        - Enable debug mode (shows all system messages)
+/gls compliance on|off   - Toggle compliance mode (plain text + safer behavior)
 ```
 
 ### Visual Interface (Minimap Button)
@@ -53,6 +55,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 - Left-click the minimap button to open/close the options window
 - Drag the minimap button to move it around the minimap
 - Options window includes toggles for Enabled / Prefix / Debug
+- Options window includes a **Compliance mode** toggle
 - Includes channel cycling button, rank filter input, and color picker
 - Includes dedicated quote editors for leave, kick, promotion, and demotion (one quote per line)
 - Includes separate test controls: **Send Test** (send now) and **Mode** (cycle leave/kick/promote/demote)
@@ -162,6 +165,7 @@ The addon comes with built-in quote pools for leave, kick, promotion, and demoti
 - **Rank Filter**: All ranks
 - **Color**: Orange (#ff9900)
 - **Throttle**: 10 seconds between messages
+- **Compliance Mode**: Off
 
 ## FAQ
 
@@ -185,6 +189,9 @@ A: Yes. Use `/gls rank all` for everyone, or `/gls rank <index>` where `0=GM` an
 
 **Q: How do I test kick/promotion/demotion quotes quickly?**  
 A: Use `/gls testmode leave|kick|promote|demote` to set mode for the UI test button, then click **Send Test** in the options window. (`/gls test <name>` is a quick leave-test slash command.)
+
+**Q: What does compliance mode do?**  
+A: It sends plain-text chat (no color codes), replaces player names with event labels (`<player left>`, `<guild kick>`, `<guild promotion>`, `<guild demotion>`), enforces a stricter minimum throttle, and filters a small set of more hostile built-in quote phrases.
 
 **Q: What if multiple people leave at once?**  
 A: The 10-second throttle prevents spam. Only one message will fire.
