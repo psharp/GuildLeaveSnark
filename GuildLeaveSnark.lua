@@ -1234,7 +1234,7 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage('/gls clear  (restore default quotes)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls add <quote>  (alias for addleave)')
     DEFAULT_CHAT_FRAME:AddMessage('/gls testmode [leave|kick|promote|demote]')
-    DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>  (test with fake leave)')
+    DEFAULT_CHAT_FRAME:AddMessage('/gls test <name>  (send quick leave test)')
     return
   end
 
