@@ -15,7 +15,6 @@ local defaults = {
   minimapAngle = 225,    -- minimap button position angle
   throttleSeconds = 10,  -- prevent spam during mass changes
   debug = false,         -- print system messages for debugging
-  color = "ff9900",      -- hex color (default: orange)
   quotesLeave = {
     "Another one returns to the wild.",
     "Press F. Or dont.",
@@ -133,6 +132,9 @@ local function initDB()
       end
     end
   end
+
+  -- Remove legacy color setting (snark output is plain text only)
+  GLS_DB.color = nil
   
   -- Migrate old "quotes" to "quotesLeave" if needed
   if type(GLS_DB.quotes) == "table" and table.getn(GLS_DB.quotes) > 0 then
@@ -246,11 +248,9 @@ local function postSnark(name, quoteType, rankIndex, bypassThrottle)
   if GLS_DB.complianceMode then
     msg = complianceEventLabel(quoteType) .. ": " .. stripColorCodes(quote)
   elseif GLS_DB.prefixName and name and name ~= "" then
-    local color = GLS_DB.color or "ff9900"
-    msg = "|cff" .. color .. name .. ": " .. quote .. "|r"
+    msg = stripColorCodes(name) .. ": " .. stripColorCodes(quote)
   else
-    local color = GLS_DB.color or "ff9900"
-    msg = "|cff" .. color .. quote .. "|r"
+    msg = stripColorCodes(quote)
   end
 
   if GLS_DB.debug then
@@ -308,30 +308,6 @@ local function setTestTypeByName(mode)
     end
   end
   return false
-end
-
-local function hexToRGB(hex)
-  hex = string.lower(hex or "ff9900")
-  if string.len(hex) ~= 6 then
-    hex = "ff9900"
-  end
-
-  local r = tonumber(string.sub(hex, 1, 2), 16) or 255
-  local g = tonumber(string.sub(hex, 3, 4), 16) or 153
-  local b = tonumber(string.sub(hex, 5, 6), 16) or 0
-  return r / 255, g / 255, b / 255
-end
-
-local function rgbToHex(r, g, b)
-  local rr = math.floor((r or 1) * 255 + 0.5)
-  local gg = math.floor((g or 0.6) * 255 + 0.5)
-  local bb = math.floor((b or 0) * 255 + 0.5)
-
-  if rr < 0 then rr = 0 elseif rr > 255 then rr = 255 end
-  if gg < 0 then gg = 0 elseif gg > 255 then gg = 255 end
-  if bb < 0 then bb = 0 elseif bb > 255 then bb = 255 end
-
-  return string.format("%02x%02x%02x", rr, gg, bb)
 end
 
 local function quotesToText(quotes)
@@ -551,14 +527,6 @@ local function updateOptionsUI()
     end
   end
 
-  local colorHex = GLS_DB.color
-  if type(colorHex) ~= "string" or string.len(colorHex) ~= 6 then
-    colorHex = "ff9900"
-  end
-
-  if optionsControls.colorButton then
-    optionsControls.colorButton:SetText(string.format("Pick Color: #%s", colorHex))
-  end
   if optionsControls.testModeButton then
     optionsControls.testModeButton:SetText("Mode: " .. (testCycleLabels[currentTestType()] or "Leave"))
   end
@@ -608,27 +576,6 @@ local function applyRankFilterFromEdit()
       optionsControls.rankEdit:SetText("all")
     end
   end
-end
-
-local function openColorPicker()
-  local oldHex = GLS_DB.color or "ff9900"
-  local r, g, b = hexToRGB(oldHex)
-
-  local function applyPickerColor()
-    local pr, pg, pb = ColorPickerFrame:GetColorRGB()
-    GLS_DB.color = rgbToHex(pr, pg, pb)
-    updateOptionsUI()
-  end
-
-  ColorPickerFrame.hasOpacity = false
-  ColorPickerFrame.opacityFunc = nil
-  ColorPickerFrame.func = applyPickerColor
-  ColorPickerFrame.cancelFunc = function()
-    GLS_DB.color = oldHex
-    updateOptionsUI()
-  end
-  ColorPickerFrame:SetColorRGB(r, g, b)
-  ColorPickerFrame:Show()
 end
 
 local function createOptionsUI()
@@ -734,7 +681,7 @@ local function createOptionsUI()
   optionsControls.channelButton = channelButton
 
   local rankLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  rankLabel:SetPoint("TOPLEFT", compliance, "BOTTOMLEFT", 4, -12)
+  rankLabel:SetPoint("TOPLEFT", channelButton, "BOTTOMLEFT", 4, -12)
   rankLabel:SetText("Rank filter")
 
   local rankEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
@@ -761,19 +708,8 @@ local function createOptionsUI()
   rankHelp:SetPoint("TOPLEFT", rankEdit, "BOTTOMLEFT", 0, -4)
   rankHelp:SetText("all or index (0=GM)")
 
-  local colorLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  colorLabel:SetPoint("TOPLEFT", channelButton, "BOTTOMLEFT", 0, -14)
-  colorLabel:SetText("Message color")
-
-  local colorButton = CreateFrame("Button", "GLS_ColorButton", frame, "UIPanelButtonTemplate")
-  colorButton:SetWidth(170)
-  colorButton:SetHeight(22)
-  colorButton:SetPoint("TOPLEFT", colorLabel, "BOTTOMLEFT", 0, -6)
-  colorButton:SetScript("OnClick", openColorPicker)
-  optionsControls.colorButton = colorButton
-
   local leaveLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  leaveLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -210)
+  leaveLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -182)
   leaveLabel:SetText("Leave quotes (one per line)")
 
   local leaveSaveBtn = CreateFrame("Button", "GLS_LeaveSaveButton", frame, "UIPanelButtonTemplate")
@@ -785,12 +721,12 @@ local function createOptionsUI()
 
   local leaveScroll = CreateFrame("ScrollFrame", "GLS_LeaveQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   leaveScroll:SetWidth(300)
-  leaveScroll:SetHeight(150)
+  leaveScroll:SetHeight(192)
   leaveScroll:SetPoint("TOPLEFT", leaveLabel, "BOTTOMLEFT", 0, -8)
 
   local leaveEdit = CreateFrame("EditBox", nil, leaveScroll)
   leaveEdit:SetWidth(278)
-  leaveEdit:SetHeight(150)
+  leaveEdit:SetHeight(192)
   leaveEdit:SetAutoFocus(false)
   leaveEdit:SetMultiLine(true)
   leaveEdit:SetFontObject(ChatFontNormal)
@@ -804,7 +740,7 @@ local function createOptionsUI()
   optionsControls.leaveQuotesEdit = leaveEdit
 
   local kickLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  kickLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -210)
+  kickLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -182)
   kickLabel:SetText("Kick quotes (one per line)")
 
   local kickSaveBtn = CreateFrame("Button", "GLS_KickSaveButton", frame, "UIPanelButtonTemplate")
@@ -816,12 +752,12 @@ local function createOptionsUI()
 
   local kickScroll = CreateFrame("ScrollFrame", "GLS_KickQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   kickScroll:SetWidth(300)
-  kickScroll:SetHeight(150)
+  kickScroll:SetHeight(192)
   kickScroll:SetPoint("TOPLEFT", kickLabel, "BOTTOMLEFT", 0, -8)
 
   local kickEdit = CreateFrame("EditBox", nil, kickScroll)
   kickEdit:SetWidth(278)
-  kickEdit:SetHeight(150)
+  kickEdit:SetHeight(192)
   kickEdit:SetAutoFocus(false)
   kickEdit:SetMultiLine(true)
   kickEdit:SetFontObject(ChatFontNormal)
@@ -847,12 +783,12 @@ local function createOptionsUI()
 
   local promoteScroll = CreateFrame("ScrollFrame", "GLS_PromoteQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   promoteScroll:SetWidth(300)
-  promoteScroll:SetHeight(150)
+  promoteScroll:SetHeight(192)
   promoteScroll:SetPoint("TOPLEFT", promoteLabel, "BOTTOMLEFT", 0, -8)
 
   local promoteEdit = CreateFrame("EditBox", nil, promoteScroll)
   promoteEdit:SetWidth(278)
-  promoteEdit:SetHeight(150)
+  promoteEdit:SetHeight(192)
   promoteEdit:SetAutoFocus(false)
   promoteEdit:SetMultiLine(true)
   promoteEdit:SetFontObject(ChatFontNormal)
@@ -878,12 +814,12 @@ local function createOptionsUI()
 
   local demoteScroll = CreateFrame("ScrollFrame", "GLS_DemoteQuotesScroll", frame, "UIPanelScrollFrameTemplate")
   demoteScroll:SetWidth(300)
-  demoteScroll:SetHeight(150)
+  demoteScroll:SetHeight(192)
   demoteScroll:SetPoint("TOPLEFT", demoteLabel, "BOTTOMLEFT", 0, -8)
 
   local demoteEdit = CreateFrame("EditBox", nil, demoteScroll)
   demoteEdit:SetWidth(278)
-  demoteEdit:SetHeight(150)
+  demoteEdit:SetHeight(192)
   demoteEdit:SetAutoFocus(false)
   demoteEdit:SetMultiLine(true)
   demoteEdit:SetFontObject(ChatFontNormal)
@@ -1072,12 +1008,41 @@ end
 -- Returns: name, type ("leave", "kick", "promote", "demote")
 local function parseLeftGuild(systemMsg)
   if not systemMsg then return nil, nil end
+  systemMsg = tostring(systemMsg)
+  systemMsg = string.gsub(systemMsg, "|c%x%x%x%x%x%x%x%x", "")
+  systemMsg = string.gsub(systemMsg, "|r", "")
+  systemMsg = string.gsub(systemMsg, "|H.-|h%[([^%]]+)%]|h", "%1")
+  systemMsg = string.gsub(systemMsg, "|H.-|h([^|]+)|h", "%1")
+  systemMsg = string.gsub(systemMsg, "^%s+", "")
+  systemMsg = string.gsub(systemMsg, "%s+$", "")
+  systemMsg = string.gsub(systemMsg, "%s+", " ")
+
   -- Voluntary leave: "Name has left the guild."
   local _, _, n = string.find(systemMsg, "^(.+) has left the guild%.$")
   if n then return n, "leave" end
   -- Some clients/servers omit the period:
   _, _, n = string.find(systemMsg, "^(.+) has left the guild$")
   if n then return n, "leave" end
+  -- Additional server wording variants:
+  _, _, n = string.find(systemMsg, "^(.+) left the guild%.$")
+  if n then return n, "leave" end
+  _, _, n = string.find(systemMsg, "^(.+) left the guild$")
+  if n then return n, "leave" end
+  _, _, n = string.find(systemMsg, "^(.+) has left guild%.$")
+  if n then return n, "leave" end
+  _, _, n = string.find(systemMsg, "^(.+) has left guild$")
+  if n then return n, "leave" end
+
+  local leaveNeedle = " has left the guild"
+  local leaveAt = string.find(systemMsg, leaveNeedle, 1, true)
+  if leaveAt then
+    local candidateName = string.sub(systemMsg, 1, leaveAt - 1)
+    local tail = string.sub(systemMsg, leaveAt + string.len(leaveNeedle))
+    if tail == "" or tail == "." or tail == "!" then
+      return candidateName, "leave"
+    end
+  end
+
   -- Guild kick variants:
   -- "Name has been kicked out of the guild by KickerName"
   -- "Name has been kicked from the guild by KickerName"
@@ -1290,7 +1255,6 @@ SlashCmdList["GLS"] = function(msg)
     DEFAULT_CHAT_FRAME:AddMessage("/gls on | off")
     DEFAULT_CHAT_FRAME:AddMessage("/gls channel guild|say|party|raid")
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
-    DEFAULT_CHAT_FRAME:AddMessage("/gls color <hex>  (e.g., ff9900 for orange)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls rank all|<index>  (0=GM, bigger number=lower rank)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls ui  (toggle options window)")
     DEFAULT_CHAT_FRAME:AddMessage("/gls debug on|off  (show system messages)")
@@ -1338,18 +1302,6 @@ SlashCmdList["GLS"] = function(msg)
     rest = string.lower(rest or "")
     GLS_DB.prefixName = (rest == "on" or rest == "1" or rest == "true")
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark prefixName =|r "..tostring(GLS_DB.prefixName))
-    return
-  end
-
-  if cmd == "color" then
-    local hex = rest or ""
-    hex = string.gsub(hex, "^#", "")  -- strip leading # if present
-    if string.len(hex) == 6 and string.find(hex, "^%x%x%x%x%x%x$") then
-      GLS_DB.color = string.lower(hex)
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark color set to|r |cff"..GLS_DB.color..GLS_DB.color.."|r")
-    else
-      DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid hex color. Use 6 digits (e.g., ff9900 for orange)|r")
-    end
     return
   end
 

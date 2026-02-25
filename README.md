@@ -44,7 +44,6 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 ```
 /gls channel <type>      - Set output channel: guild|say|party|raid
 /gls prefix on|off       - Toggle name prefix (e.g., "Name: quote")
-/gls color <hex>         - Set message color (e.g., ff9900 for orange, ff0000 for red)
 /gls rank all|<index>    - Set rank filter (0=GM, larger number=lower rank)
 /gls debug on|off        - Enable debug mode (shows all system messages)
 /gls compliance on|off   - Toggle compliance mode (plain text + safer behavior)
@@ -56,7 +55,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 - Drag the minimap button to move it around the minimap
 - Options window includes toggles for Enabled / Prefix / Debug
 - Options window includes a **Compliance mode** toggle
-- Includes channel cycling button, rank filter input, and color picker
+- Includes channel cycling button and rank filter input
 - Includes dedicated quote editors for leave, kick, promotion, and demotion (one quote per line)
 - Includes separate test controls: **Send Test** (send now) and **Mode** (cycle leave/kick/promote/demote)
 
@@ -75,22 +74,6 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
 /gls removedemotion <number>    - Remove demotion quote by number (from /gls list)
 /gls clear                      - Restore all default quotes
 ```
-
-### Customizing Colors
-
-Change the message color to match your guild's style:
-
-```
-/gls color ff9900    - Orange (default)
-/gls color ff0000    - Red
-/gls color 00ff00    - Green
-/gls color ffff00    - Yellow
-/gls color ff00ff    - Magenta
-/gls color 00ffff    - Cyan
-/gls color ffffff    - White
-```
-
-You can use any 6-digit hex color code (with or without the `#` prefix).
 
 ## Adding Snarky Comments
 
@@ -163,7 +146,6 @@ The addon comes with built-in quote pools for leave, kick, promotion, and demoti
 - **Channel**: Guild chat
 - **Name Prefix**: Enabled (shows "PlayerName: quote")
 - **Rank Filter**: All ranks
-- **Color**: Orange (#ff9900)
 - **Throttle**: 10 seconds between messages
 - **Compliance Mode**: Off
 
