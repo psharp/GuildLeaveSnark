@@ -1,4 +1,4 @@
-# GuildLeaveSnark
+# DoomSnarky
 
 A World of Warcraft addon that automatically posts snarky messages to guild chat when someone leaves, gets kicked, gets promoted, or gets demoted. Because sometimes you need to say what everyone's thinking.
 
@@ -23,7 +23,7 @@ A World of Warcraft addon that automatically posts snarky messages to guild chat
    <WoW Installation>/Interface/AddOns/GuildLeaveSnark
    ```
 3. Restart WoW or type `/reload` in-game
-4. You should see "GuildLeaveSnark loaded. /gls for options" in your chat
+4. You should see "DoomSnarky loaded. /gls for options" in your chat
 
 ## Usage
 

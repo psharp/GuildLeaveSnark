@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Title: GuildLeaveSnark
+## Title: DoomSnarky
 ## Notes: Snarky guild messages when someone leaves.
 ## Author: You
 ## Version: 1.0

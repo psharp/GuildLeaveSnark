@@ -1,6 +1,7 @@
--- GuildLeaveSnark - Turtle/Vanilla compatible
+-- DoomSnarky - World of Warcraft Classic compatible
 
 local ADDON = "GuildLeaveSnark"
+local DISPLAY_NAME = "DoomSnarky"
 local f = CreateFrame("Frame")
 
 -- SavedVariables
@@ -612,7 +613,7 @@ local function createOptionsUI()
 
   local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", frame, "TOP", 0, -16)
-  title:SetText("GuildLeaveSnark")
+  title:SetText(DISPLAY_NAME)
 
   local subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   subtitle:SetPoint("TOP", title, "BOTTOM", 0, -6)
@@ -647,7 +648,7 @@ local function createOptionsUI()
   debug:SetPoint("TOPLEFT", frame, "TOPLEFT", 245, -56)
   debug:SetScript("OnClick", function()
     GLS_DB.debug = debug:GetChecked() and true or false
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark debug mode =|r " .. tostring(GLS_DB.debug))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." debug mode =|r " .. tostring(GLS_DB.debug))
     if GLS_DB.debug then
       DEFAULT_CHAT_FRAME:AddMessage("|cffff9900[GLS Debug]|r Debug logging enabled for CHAT_MSG_SYSTEM.")
     end
@@ -662,7 +663,7 @@ local function createOptionsUI()
   compliance:SetPoint("TOPLEFT", debug, "BOTTOMLEFT", 0, -8)
   compliance:SetScript("OnClick", function()
     GLS_DB.complianceMode = compliance:GetChecked() and true or false
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r " .. tostring(GLS_DB.complianceMode))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." compliance mode =|r " .. tostring(GLS_DB.complianceMode))
   end)
   local complianceText = _G["GLS_ComplianceCheckText"] or (compliance.GetName and _G[(compliance:GetName() or "") .. "Text"])
   if complianceText then
@@ -709,7 +710,7 @@ local function createOptionsUI()
   rankHelp:SetText("all or index (0=GM)")
 
   local leaveLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  leaveLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -182)
+  leaveLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -154)
   leaveLabel:SetText("Leave quotes (one per line)")
 
   local leaveSaveBtn = CreateFrame("Button", "GLS_LeaveSaveButton", frame, "UIPanelButtonTemplate")
@@ -740,7 +741,7 @@ local function createOptionsUI()
   optionsControls.leaveQuotesEdit = leaveEdit
 
   local kickLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  kickLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -182)
+  kickLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -154)
   kickLabel:SetText("Kick quotes (one per line)")
 
   local kickSaveBtn = CreateFrame("Button", "GLS_KickSaveButton", frame, "UIPanelButtonTemplate")
@@ -771,7 +772,7 @@ local function createOptionsUI()
   optionsControls.kickQuotesEdit = kickEdit
 
   local promoteLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  promoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -410)
+  promoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -382)
   promoteLabel:SetText("Promotion quotes (one per line)")
 
   local promoteSaveBtn = CreateFrame("Button", "GLS_PromoteSaveButton", frame, "UIPanelButtonTemplate")
@@ -802,7 +803,7 @@ local function createOptionsUI()
   optionsControls.promoteQuotesEdit = promoteEdit
 
   local demoteLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  demoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -410)
+  demoteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 360, -382)
   demoteLabel:SetText("Demotion quotes (one per line)")
 
   local demoteSaveBtn = CreateFrame("Button", "GLS_DemoteSaveButton", frame, "UIPanelButtonTemplate")
@@ -967,7 +968,7 @@ local function createMinimapButton()
 
   b:SetScript("OnEnter", function()
     GameTooltip:SetOwner(b, "ANCHOR_LEFT")
-    GameTooltip:SetText("GuildLeaveSnark")
+    GameTooltip:SetText(DISPLAY_NAME)
     GameTooltip:AddLine("Left-click: Toggle options", 1, 1, 1)
     GameTooltip:AddLine("Drag: Move minimap button", 1, 1, 1)
     GameTooltip:Show()
@@ -1200,7 +1201,7 @@ f:SetScript("OnEvent", function()
     scanRoster()
     createOptionsUI()
     createMinimapButton()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark loaded.|r  /gls for options")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." loaded.|r  /gls for options")
     return
   end
 
@@ -1251,7 +1252,7 @@ SlashCmdList["GLS"] = function(msg)
   cmd = cmd and string.lower(cmd) or ""
 
   if cmd == "" or cmd == "help" then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark commands:|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." commands:|r")
     DEFAULT_CHAT_FRAME:AddMessage("/gls on | off")
     DEFAULT_CHAT_FRAME:AddMessage("/gls channel guild|say|party|raid")
     DEFAULT_CHAT_FRAME:AddMessage("/gls prefix on|off  (Name: quote)")
@@ -1277,13 +1278,13 @@ SlashCmdList["GLS"] = function(msg)
 
   if cmd == "on" then
     GLS_DB.enabled = true
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark enabled.|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." enabled.|r")
     return
   end
 
   if cmd == "off" then
     GLS_DB.enabled = false
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark disabled.|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." disabled.|r")
     return
   end
 
@@ -1291,7 +1292,7 @@ SlashCmdList["GLS"] = function(msg)
     local ch = string.upper(rest or "")
     if ch == "GUILD" or ch == "SAY" or ch == "PARTY" or ch == "RAID" then
       GLS_DB.channel = ch
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark channel set to|r "..ch)
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." channel set to|r "..ch)
     else
       DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Invalid channel. Use guild|say|party|raid.|r")
     end
@@ -1301,7 +1302,7 @@ SlashCmdList["GLS"] = function(msg)
   if cmd == "prefix" then
     rest = string.lower(rest or "")
     GLS_DB.prefixName = (rest == "on" or rest == "1" or rest == "true")
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark prefixName =|r "..tostring(GLS_DB.prefixName))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." prefixName =|r "..tostring(GLS_DB.prefixName))
     return
   end
 
@@ -1309,23 +1310,23 @@ SlashCmdList["GLS"] = function(msg)
     rest = string.lower(rest or "")
     if rest == "" then
       if GLS_DB.rankMinIndex and GLS_DB.rankMinIndex >= 0 then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
+        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." rank filter:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
       else
-        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r all ranks")
+        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." rank filter:|r all ranks")
       end
       return
     end
 
     if rest == "all" then
       GLS_DB.rankMinIndex = -1
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter:|r all ranks")
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." rank filter:|r all ranks")
       return
     end
 
     local n = tonumber(rest)
     if n and n >= 0 then
       GLS_DB.rankMinIndex = math.floor(n)
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark rank filter set:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." rank filter set:|r rankIndex >= "..GLS_DB.rankMinIndex.." (0=GM, larger=lower rank)")
     else
       DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls rank all|<index>  (0=GM, larger number=lower rank)|r")
     end
@@ -1335,7 +1336,7 @@ SlashCmdList["GLS"] = function(msg)
   if cmd == "debug" then
     rest = string.lower(rest or "")
     GLS_DB.debug = (rest == "on" or rest == "1" or rest == "true")
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark debug mode =|r "..tostring(GLS_DB.debug))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." debug mode =|r "..tostring(GLS_DB.debug))
     if GLS_DB.debug then
       DEFAULT_CHAT_FRAME:AddMessage("|cffff9900All CHAT_MSG_SYSTEM messages will be printed.|r")
     end
@@ -1345,13 +1346,13 @@ SlashCmdList["GLS"] = function(msg)
   if cmd == "compliance" then
     rest = string.lower(rest or "")
     if rest == "" then
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r " .. tostring(GLS_DB.complianceMode))
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." compliance mode =|r " .. tostring(GLS_DB.complianceMode))
       return
     end
 
     if rest == "on" or rest == "1" or rest == "true" then
       GLS_DB.complianceMode = true
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r true")
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." compliance mode =|r true")
       DEFAULT_CHAT_FRAME:AddMessage("|cffffcc66Compliance mode uses plain text, stricter throttle, and safer quote filtering.|r")
       updateOptionsUI()
       return
@@ -1359,7 +1360,7 @@ SlashCmdList["GLS"] = function(msg)
 
     if rest == "off" or rest == "0" or rest == "false" then
       GLS_DB.complianceMode = false
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark compliance mode =|r false")
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." compliance mode =|r false")
       updateOptionsUI()
       return
     end
@@ -1376,12 +1377,12 @@ SlashCmdList["GLS"] = function(msg)
   if cmd == "testmode" then
     local mode = string.lower(rest or "")
     if mode == "" then
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark test mode:|r " .. (testCycleLabels[currentTestType()] or "Leave"))
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." test mode:|r " .. (testCycleLabels[currentTestType()] or "Leave"))
       return
     end
 
     if setTestTypeByName(mode) then
-      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark test mode set to|r " .. (testCycleLabels[currentTestType()] or "Leave"))
+      DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." test mode set to|r " .. (testCycleLabels[currentTestType()] or "Leave"))
       updateOptionsUI()
     else
       DEFAULT_CHAT_FRAME:AddMessage("|cffff6666Usage: /gls testmode leave|kick|promote|demote|r")
@@ -1474,19 +1475,19 @@ SlashCmdList["GLS"] = function(msg)
   end
 
   if cmd == "list" then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Leave Quotes ("..table.getn(GLS_DB.quotesLeave).."):|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." Leave Quotes ("..table.getn(GLS_DB.quotesLeave).."):|r")
     for i=1, table.getn(GLS_DB.quotesLeave) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesLeave[i])
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Kick Quotes ("..table.getn(GLS_DB.quotesKick).."):|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." Kick Quotes ("..table.getn(GLS_DB.quotesKick).."):|r")
     for i=1, table.getn(GLS_DB.quotesKick) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesKick[i])
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Promotion Quotes ("..table.getn(GLS_DB.quotesPromote).."):|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." Promotion Quotes ("..table.getn(GLS_DB.quotesPromote).."):|r")
     for i=1, table.getn(GLS_DB.quotesPromote) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesPromote[i])
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark Demotion Quotes ("..table.getn(GLS_DB.quotesDemote).."):|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." Demotion Quotes ("..table.getn(GLS_DB.quotesDemote).."):|r")
     for i=1, table.getn(GLS_DB.quotesDemote) do
       DEFAULT_CHAT_FRAME:AddMessage(i..": "..GLS_DB.quotesDemote[i])
     end
@@ -1502,7 +1503,7 @@ SlashCmdList["GLS"] = function(msg)
     for i=1, table.getn(defaults.quotesPromote) do GLS_DB.quotesPromote[i] = defaults.quotesPromote[i] end
     GLS_DB.quotesDemote = {}
     for i=1, table.getn(defaults.quotesDemote) do GLS_DB.quotesDemote[i] = defaults.quotesDemote[i] end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffGuildLeaveSnark quotes reset to defaults.|r")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff"..DISPLAY_NAME.." quotes reset to defaults.|r")
     updateOptionsUI()
     return
   end
